@@ -16,11 +16,10 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormLogger "gorm.io/gorm/logger"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -49,9 +48,9 @@ func getMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	gormDB, err := gorm.Open(
 		postgres.New(postgres.Config{Conn: sqlDB}),
 		&gorm.Config{
-			Logger: gormLogger.Default.LogMode(gormLogger.Info), // display SQL statement
+			Logger: logger.Default.LogMode(logger.Info), // display SQL statement for debugging
 		})
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	return gormDB, mock
 }
