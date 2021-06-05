@@ -9,5 +9,5 @@ import (
 type HealthController struct{}
 
 func (h HealthController) Status(c *gin.Context) {
-	c.String(http.StatusOK, "Working!")
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
