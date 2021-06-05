@@ -1,8 +1,13 @@
 # Go parameters
+#= reminders
+#= GOFLAGS="-count=1" ---> turn off test caching
+#= -covermode=count   ---> how many times did each statement run?
+#=			=atomic   ---> like count, but counts precisely in parallel programs
 GOENV=CGO_ENABLED=0 GOFLAGS="-count=1"
 GOCMD=$(GOENV) go
 GOGET=go get
 GOTEST=$(GOCMD) test -covermode=atomic -coverprofile=./coverage.out -v -timeout=20m
+
 
 .EXPORT_ALL_VARIABLES:
 APP_PORT?=8080
@@ -12,7 +17,7 @@ DB_NAME?=test
 DB_USER?=test
 DB_PASSWORD?=test
 
-.PHONY: pg, stop-pg, restart-pg
+.PHONY: pg, stop-pg, restart-pg, redis, stop-redis, restart-redis, restart-all, stop-all
 stop-pg:
 	@echo "[`date`] Stopping previous launched postgres [if any]"
 	docker stop urlpg || true
@@ -29,7 +34,6 @@ pg:
 restart-pg: stop-pg
 restart-pg: pg
 
-.PHONY: redis, stop-redis, restart-redis
 stop-redis:
 	@echo "[`date`] Stopping previous launched redis [if any]"
 	docker stop urlredis || true
@@ -43,16 +47,32 @@ redis:
 restart-redis: stop-redis
 restart-redis: redis
 
+stop-all: stop-pg
+stop-all: stop-redis
+
+restart-all: restart-pg
+restart-all: restart-redis
+
+.PHONY: unittest, e2e, test-all, see-coverage
+unittest:
+	@${GOTEST} `go list ./... | grep -v /e2e`
+
+e2e: restart-all
+e2e:
+	@${GOTEST} `go list ./... | grep /e2e`
+
+test-all: restart-all
+test-all:
+	@${GOTEST} ./...
+
+see-coverage:
+	@go tool cover -html=coverage.out
+
 .PHONY: run
 run:
 	@${GOCMD} run main.go
 
-.PHONY: test
-test:
-	@${GOTEST} ./...
 
-.PHONY: see-coverage
-see-coverage:
-	@go tool cover -html=coverage.out
-
-
+.PHONY: tidy
+tidy:
+	go mod tidy

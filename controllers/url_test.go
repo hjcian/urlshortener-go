@@ -139,8 +139,8 @@ func TestUrlController_Upload(t *testing.T) {
 			)
 
 			r := httptest.NewRecorder()
-			ctx, _ := gin.CreateTestContext(r)
-			ctx.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(reqJSON))
+			c, _ := gin.CreateTestContext(r)
+			c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(reqJSON))
 
 			gormDB, mock := getMockDB(t)
 			if tt.mockArgs.wantInjectMock {
@@ -152,7 +152,7 @@ func TestUrlController_Upload(t *testing.T) {
 				Log:            logger,
 				RedirectOrigin: redirectOrigin,
 			}
-			u.Upload(ctx)
+			u.Upload(c)
 			assert.Equal(t, tt.expectedStatusCode, r.Code)
 			assert.NoError(t, mock.ExpectationsWereMet())
 
