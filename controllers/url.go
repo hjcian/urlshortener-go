@@ -84,8 +84,24 @@ func (u UrlController) Upload(c *gin.Context) {
 
 func (u UrlController) Delete(c *gin.Context) {
 	urlID := c.Param("url_id")
-	c.String(http.StatusOK, "delete %s", urlID)
-	// update record
+	if err := urlshortener.Validate(urlID); err != nil {
+		u.Log.Warn("invalid id", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	res := u.DB.Debug().Delete(&models.Url{Key: urlID})
+	if res.Error != nil {
+		u.Log.Error("delete error", zap.Error(res.Error))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete error"})
+		return
+	}
+	if res.RowsAffected != 1 {
+		u.Log.Warn("id not exists", zap.String("id", urlID))
+		c.JSON(http.StatusNotFound, gin.H{"error": "id not exists"})
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
 }
 
 func (u UrlController) Redirect(c *gin.Context) {
