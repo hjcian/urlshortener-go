@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"goshorturl/models"
 	"goshorturl/urlshortener"
 	"net/http"
 	"net/url"
@@ -64,23 +65,21 @@ func (u UrlController) Upload(c *gin.Context) {
 
 	key := urlshortener.Get(req.Url)
 	u.Log.Debug("get key", zap.String("key", key))
-	// urlEntry := models.Url{
-	// 	Key:       key,
-	// 	Url:       req.Url,
-	// 	ExpiredAt: req.expireAt,
-	// }
-	// if err := u.DB.Create(&urlEntry).Error; err != nil {
-	// 	// TODO
-	// }
+	urlEntry := models.Url{
+		Key:       key,
+		Url:       req.Url,
+		ExpiredAt: req.expireAt,
+	}
+	if err := u.DB.Create(&urlEntry).Error; err != nil {
+		u.Log.Error("upload error", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal upload error"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":       key,
 		"shortUrl": fmt.Sprintf("%s/%s", u.RedirectOrigin, key),
 	})
-	// u.DB.Create()
-	// gen key
-	// insert (key, url, expireAt, createAt, UpdateAt, deleteAt)
-	// if conflict, just re-generate key (shift one letter) and insert again
 }
 
 func (u UrlController) Delete(c *gin.Context) {
@@ -91,6 +90,26 @@ func (u UrlController) Delete(c *gin.Context) {
 
 func (u UrlController) Redirect(c *gin.Context) {
 	urlID := c.Param("url_id")
-	c.String(http.StatusOK, "redirect %s", urlID)
-	// select url from db where id=id AND expireAt > now AND deleteAt != NULL
+	if err := urlshortener.Validate(urlID); err != nil {
+		u.Log.Warn("invalid id", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var result models.Url
+	if err := u.DB.Where(
+		// NOTE: will use `"urls"."deleted_at" IS NULL` to filter the deleted record
+		"key = ? AND expired_at > ?",
+		urlID, time.Now(),
+	).Take(&result).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// TODO: also cache empty data to mitigate cache penetration
+			c.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "redirect error"})
+		return
+	}
+	// TODO: cache data to mitigate cache penetration
+	c.Redirect(http.StatusMovedPermanently, result.Url)
 }

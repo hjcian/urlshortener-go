@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Url struct {
 	Key       string `gorm:"primaryKey"`
@@ -8,5 +12,5 @@ type Url struct {
 	ExpiredAt time.Time `gorm:"index"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt time.Time `gorm:"index"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }

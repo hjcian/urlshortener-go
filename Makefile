@@ -1,5 +1,10 @@
-.EXPORT_ALL_VARIABLES:
+# Go parameters
+GOENV=CGO_ENABLED=0 GOFLAGS="-count=1"
+GOCMD=$(GOENV) go
+GOGET=go get
+GOTEST=$(GOCMD) test -covermode=atomic -coverprofile=./coverage.out -v -timeout=20m
 
+.EXPORT_ALL_VARIABLES:
 APP_PORT?=8080
 CACHE_PORT?=6679
 DB_PORT?=5555
@@ -40,5 +45,14 @@ restart-redis: redis
 
 .PHONY: run
 run:
-	@go run main.go
+	@${GOCMD} run main.go
+
+.PHONY: test
+test:
+	@${GOTEST} ./...
+
+.PHONY: see-coverage
+see-coverage:
+	@go tool cover -html=coverage.out
+
 

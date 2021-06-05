@@ -18,4 +18,5 @@ Content-Type: application/json
 DELETE http://{{host}}:{{port}}/api/v1/urls/qasdew HTTP/1.1
 
 ### redirect
-GET http://{{host}}:{{port}}/qasdew HTTP/1.1
+GET http://{{host}}:{{port}}/1WPoEU HTTP/1.1
+
