@@ -17,9 +17,9 @@ import (
 const expireAtLayout = "2006-01-02T15:04:05Z"
 
 type uploadReqData struct {
-	Url      string `json:"url"`
-	ExpireAt string `json:"expireAt"`
-	expireAt time.Time
+	Url         string `json:"url"`
+	ExpireAtStr string `json:"expireAt"`
+	expireAt    time.Time
 }
 
 // parseAndValidate parses the expireAt and stores result if parsing successful.
@@ -32,7 +32,7 @@ func (u *uploadReqData) parseAndValidate() (err error) {
 		return fmt.Errorf("invalid URL: %w", err)
 	}
 
-	u.expireAt, err = time.Parse(expireAtLayout, u.ExpireAt)
+	u.expireAt, err = time.Parse(expireAtLayout, u.ExpireAtStr)
 	if err != nil {
 		return err
 	}
@@ -40,6 +40,7 @@ func (u *uploadReqData) parseAndValidate() (err error) {
 	if u.expireAt.Before(now) {
 		return errors.New("uploaded URL has already expired")
 	}
+
 	return nil
 }
 
@@ -64,7 +65,6 @@ func (u UrlController) Upload(c *gin.Context) {
 	}
 
 	key := urlshortener.Get(req.Url)
-	u.Log.Debug("get key", zap.String("key", key))
 	urlEntry := models.Url{
 		Key:       key,
 		Url:       req.Url,
@@ -90,7 +90,7 @@ func (u UrlController) Delete(c *gin.Context) {
 		return
 	}
 
-	res := u.DB.Debug().Delete(&models.Url{Key: urlID})
+	res := u.DB.Delete(&models.Url{Key: urlID})
 	if res.Error != nil {
 		u.Log.Error("delete error", zap.Error(res.Error))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete error"})

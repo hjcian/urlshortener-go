@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"goshorturl/urlshortener"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +20,11 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
+)
+
+var (
+	errInternalDBError = errors.New("internal db error raised by test")
 )
 
 type anyExpireTime struct{}
@@ -26,104 +34,169 @@ func (a anyExpireTime) Match(v driver.Value) bool {
 	return ok
 }
 
+type anyValidID struct{}
+
+func (a anyValidID) Match(v driver.Value) bool {
+	id, ok := v.(string)
+	err := urlshortener.Validate(id)
+	return ok && (err == nil)
+}
+
 func getMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	sqlDB, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 
-	gormDB, err := gorm.Open(postgres.New(postgres.Config{
-		Conn: sqlDB,
-	}), &gorm.Config{})
+	gormDB, err := gorm.Open(
+		postgres.New(postgres.Config{Conn: sqlDB}),
+		&gorm.Config{
+			Logger: gormLogger.Default.LogMode(gormLogger.Info), // display SQL statement
+		})
 	require.NoError(t, err)
+
 	return gormDB, mock
 }
+
 func TestUrlController_Upload(t *testing.T) {
+	// t.Skip()
+
 	gin.SetMode(gin.TestMode)
 	logger, _ := zap.NewDevelopment()
 
-	validExpireTimeStr := time.Now().Add(time.Hour).Format(expireAtLayout)
-	expiredTimeStr := time.Now().Add(-24 * time.Hour).Format(expireAtLayout)
+	redirectOrigin := "http://example.com"
+	validExpireTime := time.Now().UTC().Add(24 * time.Hour)
+	expiredTime := time.Now().UTC().Add(-24 * time.Hour)
 
+	type jsonArgs struct {
+		url       string
+		expiredAt time.Time
+	}
+	type mockArgs struct {
+		wantInjectMock bool
+		dbResult       driver.Result
+		wantDBError    bool
+	}
 	tests := []struct {
 		name               string
-		reqJSON            string
+		jsonArgs           jsonArgs
+		mockArgs           mockArgs
 		expectedStatusCode int
 	}{
 		{
+			"upload OK",
+			jsonArgs{"http://example.com", validExpireTime},
+			mockArgs{true, sqlmock.NewResult(1, 1), false},
+			http.StatusOK,
+		},
+		{
+			"internal db error",
+			jsonArgs{"http://example.com", validExpireTime},
+			mockArgs{true, nil, true},
+			http.StatusInternalServerError,
+		},
+		{
 			"invalid url",
-			fmt.Sprintf(`{"url": "foobar", "expireAt": "%s"}`, validExpireTimeStr),
+			jsonArgs{"foobar", validExpireTime},
+			mockArgs{false, nil, false},
 			http.StatusBadRequest,
 		},
 		{
 			"empty url",
-			fmt.Sprintf(`{"url": "", "expireAt": "%s"}`, validExpireTimeStr),
-			http.StatusBadRequest,
-		},
-		{
-			"no url field",
-			fmt.Sprintf(`{"expireAt": "%s"}`, validExpireTimeStr),
-			http.StatusBadRequest,
-		},
-		{
-			"invalid time format",
-			`{"url": "http://example.com", "expireAt": "foobar"}}`,
+			jsonArgs{"", validExpireTime},
+			mockArgs{false, nil, false},
 			http.StatusBadRequest,
 		},
 		{
 			"upload an url with expired time",
-			fmt.Sprintf(`{"url": "http://example.com", "expireAt": "%s"}`, expiredTimeStr),
+			jsonArgs{"http://example.com", expiredTime},
+			mockArgs{false, nil, false},
 			http.StatusBadRequest,
 		},
 	}
+
+	injectMock := func(mock sqlmock.Sqlmock, jsonArgs jsonArgs, result driver.Result, wantDBError bool) {
+		mock.ExpectBegin() // called by gorm
+		exec := mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO "urls" ("key","url","expired_at","created_at","updated_at","deleted_at") VALUES ($1,$2,$3,$4,$5,$6)`))
+		if !wantDBError {
+			// convert to and back, do the samething in application code
+			expiredAtStr := jsonArgs.expiredAt.Format(expireAtLayout)
+			expiredAt, _ := time.Parse(expireAtLayout, expiredAtStr)
+
+			exec.
+				WithArgs(anyValidID{}, jsonArgs.url, expiredAt, anyExpireTime{}, anyExpireTime{}, nil).
+				WillReturnResult(result)
+			mock.ExpectCommit() // called by gorm
+		} else {
+			exec.WillReturnError(errInternalDBError)
+			mock.ExpectRollback() // called by gorm
+		}
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			reqJSON := fmt.Sprintf(
+				`{"url": "%s", "expireAt": "%s"}`,
+				tt.jsonArgs.url, tt.jsonArgs.expiredAt.Format(expireAtLayout),
+			)
+
 			r := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(r)
-			ctx.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tt.reqJSON))
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(reqJSON))
+
+			gormDB, mock := getMockDB(t)
+			if tt.mockArgs.wantInjectMock {
+				injectMock(mock, tt.jsonArgs, tt.mockArgs.dbResult, tt.mockArgs.wantDBError)
+			}
 
 			u := UrlController{
-				DB:             nil,
+				DB:             gormDB,
 				Log:            logger,
-				RedirectOrigin: "",
+				RedirectOrigin: redirectOrigin,
 			}
 			u.Upload(ctx)
 			assert.Equal(t, tt.expectedStatusCode, r.Code)
+			assert.NoError(t, mock.ExpectationsWereMet())
+
+			if r.Code == http.StatusOK {
+				var resp struct {
+					ID       string `json:"id"`
+					ShortUrl string `json:"shortUrl"`
+				}
+				err := json.Unmarshal(r.Body.Bytes(), &resp)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, resp.ID)
+				assert.NotEmpty(t, resp.ShortUrl)
+				assert.Equal(t, fmt.Sprintf("%s/%s", redirectOrigin, resp.ID), resp.ShortUrl)
+			}
 		})
 	}
 }
 
 func TestUrlController_Delete(t *testing.T) {
+	// t.Skip()
+
 	gin.SetMode(gin.TestMode)
 	logger, _ := zap.NewDevelopment()
-
-	injectMock := func(mock sqlmock.Sqlmock, id string, result driver.Result, wantSQLError bool) {
-		mock.ExpectBegin()
-		exec := mock.ExpectExec(`UPDATE "urls" SET (.+) WHERE "urls"."key" = ?`)
-		if !wantSQLError {
-			exec.WithArgs(anyExpireTime{}, id).
-				WillReturnResult(result)
-		} else {
-			exec.WillReturnError(errors.New("db internal error"))
-		}
-		mock.ExpectCommit()
-	}
 
 	tests := []struct {
 		name               string
 		id                 string
-		sqlResult          driver.Result
-		wantSQLError       bool
+		wantInjectMock     bool
+		dbResult           driver.Result
+		wantDBError        bool
 		expectedStatusCode int
 	}{
 		{
 			"delete ok",
 			"okokok",
+			true,
 			sqlmock.NewResult(1, 1),
 			false,
 			http.StatusNoContent,
 		},
 		{
 			"not found id",
-			"noidno",
+			"noooid",
+			true,
 			sqlmock.NewResult(1, 0),
 			false,
 			http.StatusNotFound,
@@ -131,19 +204,33 @@ func TestUrlController_Delete(t *testing.T) {
 		{
 			"empty id",
 			"",
-			sqlmock.NewResult(1, 0),
+			false,
+			nil,
 			false,
 			http.StatusBadRequest,
 		},
 		{
 			"internal db error",
 			"okokok",
+			true,
 			nil,
 			true,
 			http.StatusInternalServerError,
 		},
 	}
 
+	injectMock := func(mock sqlmock.Sqlmock, id string, result driver.Result, wantDBError bool) {
+		mock.ExpectBegin() // called by gorm
+		exec := mock.ExpectExec(regexp.QuoteMeta(`UPDATE "urls" SET "deleted_at"=$1 WHERE "urls"."key" = $2 AND "urls"."deleted_at" IS NULL`))
+		if !wantDBError {
+			exec.WithArgs(anyExpireTime{}, id).
+				WillReturnResult(result)
+			mock.ExpectCommit() // called by gorm
+		} else {
+			exec.WillReturnError(errInternalDBError)
+			mock.ExpectRollback() // called by gorm
+		}
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := httptest.NewRecorder()
@@ -152,7 +239,9 @@ func TestUrlController_Delete(t *testing.T) {
 			c.Params = []gin.Param{{Key: "url_id", Value: tt.id}}
 
 			gormDB, mock := getMockDB(t)
-			injectMock(mock, tt.id, tt.sqlResult, tt.wantSQLError)
+			if tt.wantInjectMock {
+				injectMock(mock, tt.id, tt.dbResult, tt.wantDBError)
+			}
 
 			u := UrlController{
 				DB:             gormDB,
@@ -161,44 +250,90 @@ func TestUrlController_Delete(t *testing.T) {
 			}
 			u.Delete(c)
 			assert.Equal(t, tt.expectedStatusCode, r.Code)
+			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }
 
 func TestUrlController_Redirect(t *testing.T) {
+	// t.Skip()
+
 	gin.SetMode(gin.TestMode)
 	logger, _ := zap.NewDevelopment()
 
 	tests := []struct {
 		name               string
 		id                 string
+		wantInjectMock     bool
+		dbErr              error
+		expectedURL        string
 		expectedStatusCode int
 	}{
-		// {
-		// 	"redirect OK",
-		// 	"qwerty",
-		// 	http.StatusMovedPermanently,
-		// },
+		{
+			"redirect OK",
+			"aaaaaa",
+			true,
+			nil,
+			"https://example.com",
+			http.StatusMovedPermanently,
+		},
 		{
 			"empty id",
 			"",
+			false,
+			nil,
+			"",
 			http.StatusBadRequest,
 		},
+		{
+			"record not found",
+			"nooURL",
+			true,
+			gorm.ErrRecordNotFound,
+			"",
+			http.StatusNotFound,
+		},
+		{
+			"internal db error",
+			"okokok",
+			true,
+			errInternalDBError,
+			"",
+			http.StatusInternalServerError,
+		},
 	}
+
+	injectMock := func(mock sqlmock.Sqlmock, id, wantURL string, dbErr error) {
+		exec := mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "urls" WHERE (key = $1 AND expired_at > $2) AND "urls"."deleted_at" IS NULL LIMIT 1`))
+		if dbErr == nil {
+			rows := sqlmock.NewRows([]string{"url"}).AddRow(wantURL)
+			exec.WithArgs(id, anyExpireTime{}).
+				WillReturnRows(rows)
+		} else {
+			exec.WillReturnError(dbErr)
+		}
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(r)
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 			c.Params = []gin.Param{{Key: "url_id", Value: tt.id}}
+			gormDB, mock := getMockDB(t)
+			if tt.wantInjectMock {
+				injectMock(mock, tt.id, tt.expectedURL, tt.dbErr)
+			}
 
 			u := UrlController{
-				DB:             nil,
+				DB:             gormDB,
 				Log:            logger,
 				RedirectOrigin: "",
 			}
 			u.Redirect(c)
 			assert.Equal(t, tt.expectedStatusCode, r.Code)
+			assert.Equal(t, tt.expectedURL, r.Header().Get("location"))
+			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }
