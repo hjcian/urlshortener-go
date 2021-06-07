@@ -1,19 +1,17 @@
 package repository
 
 import (
-	"fmt"
-
-	"goshorturl/models"
-
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"context"
+	"errors"
+	"time"
 )
 
-func Init(port int, host, dbuser, dbname, password string) (*gorm.DB, error) {
-	args := fmt.Sprintf("host=%s port=%v user=%s dbname=%s password=%s TimeZone=Asia/Taipei",
-		host, port, dbuser, dbname, password)
-	db, err := gorm.Open(postgres.Open(args), &gorm.Config{})
+var (
+	ErrRecordNotFound = errors.New("record not found")
+)
 
-	db.AutoMigrate(&models.Url{})
-	return db, err
+type Repository interface {
+	Create(ctx context.Context, id, url string, expiredAt time.Time) error
+	Delete(ctx context.Context, id string) error
+	Get(ctx context.Context, id string) (string, error)
 }

@@ -2,13 +2,13 @@ package server
 
 import (
 	"goshorturl/controllers"
+	"goshorturl/repository"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
-func NewRouter(db *gorm.DB, logger *zap.Logger, redirectOrigin string) *gin.Engine {
+func NewRouter(db repository.Repository, logger *zap.Logger, redirectOrigin string) *gin.Engine {
 	router := gin.Default()
 	router.HandleMethodNotAllowed = true
 

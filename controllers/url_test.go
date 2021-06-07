@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"goshorturl/repository"
 	"goshorturl/shortener"
 	"net/http"
 	"net/http/httptest"
@@ -41,18 +42,19 @@ func (a anyValidID) Match(v driver.Value) bool {
 	return ok && (err == nil)
 }
 
-func getMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
+func getMockDB(t *testing.T) (repository.Repository, sqlmock.Sqlmock) {
 	sqlDB, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 
-	gormDB, err := gorm.Open(
+	repo, err := repository.InitPGRepoWith(
 		postgres.New(postgres.Config{Conn: sqlDB}),
-		&gorm.Config{
+		gorm.Config{
 			Logger: logger.Default.LogMode(logger.Info), // display SQL statement for debugging
-		})
+		},
+	)
 	assert.NoError(t, err)
 
-	return gormDB, mock
+	return repo, mock
 }
 
 func TestUrlController_Upload(t *testing.T) {

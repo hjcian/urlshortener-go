@@ -1,9 +1,10 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"goshorturl/models"
+	"goshorturl/repository"
 	"goshorturl/shortener"
 	"net/http"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 const expireAtLayout = "2006-01-02T15:04:05Z"
@@ -45,7 +45,7 @@ func (u *uploadReqData) parseAndValidate() (err error) {
 }
 
 type UrlController struct {
-	DB             *gorm.DB
+	DB             repository.Repository
 	Log            *zap.Logger
 	RedirectOrigin string
 }
@@ -65,12 +65,7 @@ func (u UrlController) Upload(c *gin.Context) {
 	}
 
 	id := shortener.Generate(req.Url)
-	urlEntry := models.Url{
-		Id:        id,
-		Url:       req.Url,
-		ExpiredAt: req.expireAt,
-	}
-	if err := u.DB.Create(&urlEntry).Error; err != nil {
+	if err := u.DB.Create(context.Background(), id, req.Url, req.expireAt); err != nil {
 		u.Log.Error("upload error", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal upload error"})
 		return
@@ -90,15 +85,14 @@ func (u UrlController) Delete(c *gin.Context) {
 		return
 	}
 
-	res := u.DB.Delete(&models.Url{Id: urlID})
-	if res.Error != nil {
-		u.Log.Error("delete error", zap.Error(res.Error))
+	if err := u.DB.Delete(context.Background(), urlID); err != nil {
+		if err == repository.ErrRecordNotFound {
+			u.Log.Warn("id not exists", zap.String("id", urlID))
+			c.JSON(http.StatusNotFound, gin.H{"error": "id not exists"})
+			return
+		}
+		u.Log.Error("delete error", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete error"})
-		return
-	}
-	if res.RowsAffected != 1 {
-		u.Log.Warn("id not exists", zap.String("id", urlID))
-		c.JSON(http.StatusNotFound, gin.H{"error": "id not exists"})
 		return
 	}
 	c.JSON(http.StatusNoContent, nil)
@@ -111,21 +105,16 @@ func (u UrlController) Redirect(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-
-	var result models.Url
-	if err := u.DB.Where(
-		// NOTE: will use `"urls"."deleted_at" IS NULL` to filter the deleted record
-		"id = ? AND expired_at > ?",
-		urlID, time.Now(),
-	).Take(&result).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// TODO: also cache empty data to mitigate cache penetration
+	oriUrl, err := u.DB.Get(context.Background(), urlID)
+	if err != nil {
+		if err == repository.ErrRecordNotFound {
+			u.Log.Warn("record not found", zap.Error(err))
 			c.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
 			return
 		}
+		u.Log.Error("redirect error", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "redirect error"})
 		return
 	}
-	// TODO: cache data to mitigate cache penetration
-	c.Redirect(http.StatusMovedPermanently, result.Url)
+	c.Redirect(http.StatusMovedPermanently, oriUrl)
 }

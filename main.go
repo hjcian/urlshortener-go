@@ -9,12 +9,11 @@ import (
 	"log"
 
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 var (
 	env       config.Env
-	db        *gorm.DB
+	db        repository.Repository
 	zaplogger *zap.Logger
 )
 
@@ -30,7 +29,7 @@ func main() {
 		log.Fatalf("failed to process env: %s", err)
 	}
 
-	db, err = repository.Init(env.DBPort, env.DBHost, env.DBUser, env.DBName, env.DBPassword)
+	db, err = repository.InitPGRepo(env.DBPort, env.DBHost, env.DBUser, env.DBName, env.DBPassword)
 	if err != nil {
 		log.Fatalf("failed to connect db: %s", err)
 	}
