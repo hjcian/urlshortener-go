@@ -8,7 +8,6 @@ GOCMD=$(GOENV) go
 GOGET=go get
 GOTEST=$(GOCMD) test -covermode=atomic -coverprofile=./coverage.out -v -timeout=20m
 
-
 .EXPORT_ALL_VARIABLES:
 APP_PORT?=8080
 CACHE_PORT?=6679
