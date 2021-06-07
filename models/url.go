@@ -7,7 +7,7 @@ import (
 )
 
 type Url struct {
-	Key       string `gorm:"primaryKey"`
+	Id        string `gorm:"primaryKey"`
 	Url       string
 	ExpiredAt time.Time `gorm:"index"`
 	CreatedAt time.Time

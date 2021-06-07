@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"goshorturl/models"
-	"goshorturl/urlshortener"
+	"goshorturl/shortener"
 	"net/http"
 	"net/url"
 	"time"
@@ -64,9 +64,9 @@ func (u UrlController) Upload(c *gin.Context) {
 		return
 	}
 
-	key := urlshortener.Get(req.Url)
+	id := shortener.Generate(req.Url)
 	urlEntry := models.Url{
-		Key:       key,
+		Id:        id,
 		Url:       req.Url,
 		ExpiredAt: req.expireAt,
 	}
@@ -77,20 +77,20 @@ func (u UrlController) Upload(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":       key,
-		"shortUrl": fmt.Sprintf("%s/%s", u.RedirectOrigin, key),
+		"id":       id,
+		"shortUrl": fmt.Sprintf("%s/%s", u.RedirectOrigin, id),
 	})
 }
 
 func (u UrlController) Delete(c *gin.Context) {
 	urlID := c.Param("url_id")
-	if err := urlshortener.Validate(urlID); err != nil {
+	if err := shortener.Validate(urlID); err != nil {
 		u.Log.Warn("invalid id", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	res := u.DB.Delete(&models.Url{Key: urlID})
+	res := u.DB.Delete(&models.Url{Id: urlID})
 	if res.Error != nil {
 		u.Log.Error("delete error", zap.Error(res.Error))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete error"})
@@ -106,7 +106,7 @@ func (u UrlController) Delete(c *gin.Context) {
 
 func (u UrlController) Redirect(c *gin.Context) {
 	urlID := c.Param("url_id")
-	if err := urlshortener.Validate(urlID); err != nil {
+	if err := shortener.Validate(urlID); err != nil {
 		u.Log.Warn("invalid id", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return

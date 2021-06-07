@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"goshorturl/urlshortener"
+	"goshorturl/shortener"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -37,7 +37,7 @@ type anyValidID struct{}
 
 func (a anyValidID) Match(v driver.Value) bool {
 	id, ok := v.(string)
-	err := urlshortener.Validate(id)
+	err := shortener.Validate(id)
 	return ok && (err == nil)
 }
 

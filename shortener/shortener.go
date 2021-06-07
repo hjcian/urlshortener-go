@@ -1,4 +1,4 @@
-package urlshortener
+package shortener
 
 import (
 	"crypto/md5"
@@ -24,10 +24,10 @@ var (
 	errUnexpectedChar = errors.New("unexpected char")
 )
 
-// Get returns a 6-letters id by given URL.
+// Generate returns a 6-letters id by given URL.
 //
 // TODO: extract this functionality to another stand-alone service
-func Get(url string) string {
+func Generate(url string) string {
 	// padding with time.Now().UnixNano() to reduce collision probability if give same URL
 	bytes := md5.Sum([]byte(fmt.Sprintf("%s%d", url, time.Now().UnixNano())))
 	encoded := encoder.EncodeToString(bytes[:])
