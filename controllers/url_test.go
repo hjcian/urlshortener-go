@@ -114,7 +114,7 @@ func TestUrlController_Upload(t *testing.T) {
 
 	injectMock := func(mock sqlmock.Sqlmock, jsonArgs jsonArgs, result driver.Result, wantDBError bool) {
 		mock.ExpectBegin() // called by gorm
-		exec := mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO "urls" ("key","url","expired_at","created_at","updated_at","deleted_at") VALUES ($1,$2,$3,$4,$5,$6)`))
+		exec := mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO "urls" ("id","url","expired_at","created_at","updated_at","deleted_at") VALUES ($1,$2,$3,$4,$5,$6)`))
 		if !wantDBError {
 			// convert to and back, do the samething in application code
 			expiredAtStr := jsonArgs.expiredAt.Format(expireAtLayout)
@@ -220,7 +220,7 @@ func TestUrlController_Delete(t *testing.T) {
 
 	injectMock := func(mock sqlmock.Sqlmock, id string, result driver.Result, wantDBError bool) {
 		mock.ExpectBegin() // called by gorm
-		exec := mock.ExpectExec(regexp.QuoteMeta(`UPDATE "urls" SET "deleted_at"=$1 WHERE "urls"."key" = $2 AND "urls"."deleted_at" IS NULL`))
+		exec := mock.ExpectExec(regexp.QuoteMeta(`UPDATE "urls" SET "deleted_at"=$1 WHERE "urls"."id" = $2 AND "urls"."deleted_at" IS NULL`))
 		if !wantDBError {
 			exec.WithArgs(anyExpireTime{}, id).
 				WillReturnResult(result)
@@ -303,7 +303,7 @@ func TestUrlController_Redirect(t *testing.T) {
 	}
 
 	injectMock := func(mock sqlmock.Sqlmock, id, wantURL string, dbErr error) {
-		exec := mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "urls" WHERE (key = $1 AND expired_at > $2) AND "urls"."deleted_at" IS NULL LIMIT 1`))
+		exec := mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "urls" WHERE (id = $1 AND expired_at > $2) AND "urls"."deleted_at" IS NULL LIMIT 1`))
 		if dbErr == nil {
 			rows := sqlmock.NewRows([]string{"url"}).AddRow(wantURL)
 			exec.WithArgs(id, anyExpireTime{}).

@@ -115,7 +115,7 @@ func (u UrlController) Redirect(c *gin.Context) {
 	var result models.Url
 	if err := u.DB.Where(
 		// NOTE: will use `"urls"."deleted_at" IS NULL` to filter the deleted record
-		"key = ? AND expired_at > ?",
+		"id = ? AND expired_at > ?",
 		urlID, time.Now(),
 	).Take(&result).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
