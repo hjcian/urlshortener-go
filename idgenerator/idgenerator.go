@@ -65,7 +65,7 @@ type IDGenerator interface {
 	Get(ctx context.Context, url string, expiredAt time.Time) (string, error)
 }
 
-func NewIDGenerator(db repository.Repository) IDGenerator {
+func New(db repository.Repository) IDGenerator {
 	return &idGenerator{
 		db:  db,
 		idq: concurrentqueue.New(),

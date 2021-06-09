@@ -151,7 +151,7 @@ func TestUrlController_Upload(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
-				IDGenerator:    idgenerator.NewIDGenerator(gormDB),
+				IDGenerator:    idgenerator.New(gormDB),
 				RedirectOrigin: redirectOrigin,
 			}
 			u.Upload(c)
@@ -248,7 +248,7 @@ func TestUrlController_Delete(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
-				IDGenerator:    idgenerator.NewIDGenerator(gormDB),
+				IDGenerator:    idgenerator.New(gormDB),
 				RedirectOrigin: "",
 			}
 			u.Delete(c)
@@ -331,7 +331,7 @@ func TestUrlController_Redirect(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
-				IDGenerator:    idgenerator.NewIDGenerator(gormDB),
+				IDGenerator:    idgenerator.New(gormDB),
 				RedirectOrigin: "",
 			}
 			u.Redirect(c)
