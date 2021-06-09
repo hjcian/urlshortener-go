@@ -14,6 +14,7 @@ require (
 	github.com/jxskiss/base62 v0.0.0-20191017122030-4f11678b909b
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/klauspost/compress v1.13.0 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/valyala/fasthttp v1.26.0 // indirect

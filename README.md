@@ -14,11 +14,12 @@
 - many clients access same shorten URL simultaneously
 - try to access non-existent shorten URL
 
+
 *guideline*
 - cache penetration (scenario: too many requests from different sources, maybe legitimate or malicious, concurrently access the redirect endpoint)
   - basic key filter by simple rule, or additional proof-of-work
-  - cache empty data (maybe set a short expiration time)
-  - `bloom filter` to filter out the data that must not be existed
+  - normal use cases: cache empty data
+  - malicious attacks: should consider `bloom filter` to filter out the data that must not be existed to avoid cache too much
 - cache stampede (scenario: hot key)
   - lock (Redis's SetNX + pub/sub)
 
