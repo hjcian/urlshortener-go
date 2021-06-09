@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"goshorturl/idgenerator"
 	"goshorturl/repository"
-	"goshorturl/shortener"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -38,7 +38,7 @@ type anyValidID struct{}
 
 func (a anyValidID) Match(v driver.Value) bool {
 	id, ok := v.(string)
-	err := shortener.Validate(id)
+	err := idgenerator.Validate(id)
 	return ok && (err == nil)
 }
 
@@ -151,6 +151,7 @@ func TestUrlController_Upload(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
+				IDGenerator:    idgenerator.NewIDGenerator(gormDB),
 				RedirectOrigin: redirectOrigin,
 			}
 			u.Upload(c)
@@ -247,6 +248,7 @@ func TestUrlController_Delete(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
+				IDGenerator:    idgenerator.NewIDGenerator(gormDB),
 				RedirectOrigin: "",
 			}
 			u.Delete(c)
@@ -329,6 +331,7 @@ func TestUrlController_Redirect(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
+				IDGenerator:    idgenerator.NewIDGenerator(gormDB),
 				RedirectOrigin: "",
 			}
 			u.Redirect(c)

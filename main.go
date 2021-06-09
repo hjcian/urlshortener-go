@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"goshorturl/config"
+	"goshorturl/idgenerator"
 	"goshorturl/logger"
 	"goshorturl/repository"
 	"goshorturl/server"
@@ -34,6 +35,8 @@ func main() {
 		log.Fatalf("failed to connect db: %s", err)
 	}
 
-	r := server.NewRouter(db, zaplogger, env.RedirectOrigin)
+	idGenerator := idgenerator.NewIDGenerator(db)
+
+	r := server.NewRouter(db, idGenerator, zaplogger, env.RedirectOrigin)
 	r.Run(fmt.Sprintf(":%d", env.AppPort))
 }

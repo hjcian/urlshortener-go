@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"goshorturl/idgenerator"
 	"goshorturl/repository"
-	"goshorturl/shortener"
 	"net/http"
 	"net/url"
 	"time"
@@ -47,6 +47,7 @@ func (u *uploadReqData) parseAndValidate() (err error) {
 type UrlController struct {
 	DB             repository.Repository
 	Log            *zap.Logger
+	IDGenerator    idgenerator.IDGenerator
 	RedirectOrigin string
 }
 
@@ -64,12 +65,18 @@ func (u UrlController) Upload(c *gin.Context) {
 		return
 	}
 
-	id := shortener.Generate(req.Url)
-	if err := u.DB.Create(context.Background(), id, req.Url, req.expireAt); err != nil {
+	id, err := u.IDGenerator.Get(context.Background(), req.Url, req.expireAt)
+	if err != nil {
 		u.Log.Error("upload error", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal upload error"})
 		return
 	}
+	// id := idgenerator.Generate(req.Url)
+	// if err := u.DB.Create(context.Background(), id, req.Url, req.expireAt); err != nil {
+	// 	u.Log.Error("upload error", zap.Error(err))
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal upload error"})
+	// 	return
+	// }
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":       id,
@@ -79,7 +86,7 @@ func (u UrlController) Upload(c *gin.Context) {
 
 func (u UrlController) Delete(c *gin.Context) {
 	urlID := c.Param("url_id")
-	if err := shortener.Validate(urlID); err != nil {
+	if err := u.IDGenerator.Validate(urlID); err != nil {
 		u.Log.Warn("invalid id", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
@@ -100,7 +107,7 @@ func (u UrlController) Delete(c *gin.Context) {
 
 func (u UrlController) Redirect(c *gin.Context) {
 	urlID := c.Param("url_id")
-	if err := shortener.Validate(urlID); err != nil {
+	if err := u.IDGenerator.Validate(urlID); err != nil {
 		u.Log.Warn("invalid id", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return

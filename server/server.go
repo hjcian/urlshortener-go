@@ -2,13 +2,14 @@ package server
 
 import (
 	"goshorturl/controllers"
+	"goshorturl/idgenerator"
 	"goshorturl/repository"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-func NewRouter(db repository.Repository, logger *zap.Logger, redirectOrigin string) *gin.Engine {
+func NewRouter(db repository.Repository, idGenerator idgenerator.IDGenerator, logger *zap.Logger, redirectOrigin string) *gin.Engine {
 	router := gin.Default()
 	router.HandleMethodNotAllowed = true
 
@@ -18,6 +19,7 @@ func NewRouter(db repository.Repository, logger *zap.Logger, redirectOrigin stri
 	url := controllers.UrlController{
 		DB:             db,
 		Log:            logger,
+		IDGenerator:    idGenerator,
 		RedirectOrigin: redirectOrigin,
 	}
 	router.POST("/api/v1/urls", url.Upload)
