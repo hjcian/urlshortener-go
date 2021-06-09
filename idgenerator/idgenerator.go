@@ -100,7 +100,6 @@ func (i *idGenerator) recycleID() {
 	if atomic.CompareAndSwapInt32(&i.doRecycling, 0, 1) {
 		// TODO:
 		// select expired and deleted from DB
-		//
 		ids := []string{}
 		i.idq.BatchEnqueue(ids)
 		i.doRecycling = 0

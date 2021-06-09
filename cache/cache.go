@@ -2,7 +2,7 @@ package cache
 
 import (
 	"context"
-	"goshorturl/cache/multicas"
+	"goshorturl/pkg/multicas"
 	"goshorturl/repository"
 	"time"
 

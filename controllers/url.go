@@ -71,12 +71,6 @@ func (u UrlController) Upload(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal upload error"})
 		return
 	}
-	// id := idgenerator.Generate(req.Url)
-	// if err := u.DB.Create(context.Background(), id, req.Url, req.expireAt); err != nil {
-	// 	u.Log.Error("upload error", zap.Error(err))
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal upload error"})
-	// 	return
-	// }
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":       id,
