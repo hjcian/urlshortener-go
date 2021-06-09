@@ -86,7 +86,7 @@ func (u UrlController) Upload(c *gin.Context) {
 
 func (u UrlController) Delete(c *gin.Context) {
 	urlID := c.Param("url_id")
-	if err := u.IDGenerator.Validate(urlID); err != nil {
+	if err := idgenerator.Validate(urlID); err != nil {
 		u.Log.Warn("invalid id", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
@@ -107,7 +107,7 @@ func (u UrlController) Delete(c *gin.Context) {
 
 func (u UrlController) Redirect(c *gin.Context) {
 	urlID := c.Param("url_id")
-	if err := u.IDGenerator.Validate(urlID); err != nil {
+	if err := idgenerator.Validate(urlID); err != nil {
 		u.Log.Warn("invalid id", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
