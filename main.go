@@ -19,7 +19,7 @@ var (
 
 func main() {
 	var err error
-	zaplogger, err = logger.Init()
+	zaplogger, err = logger.New()
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %s", err)
 	}
@@ -29,7 +29,7 @@ func main() {
 		log.Fatalf("failed to process env: %s", err)
 	}
 
-	db, err = repository.InitPGRepo(env.DBPort, env.DBHost, env.DBUser, env.DBName, env.DBPassword)
+	db, err = repository.NewPGRepo(env.DBPort, env.DBHost, env.DBUser, env.DBName, env.DBPassword)
 	if err != nil {
 		log.Fatalf("failed to connect db: %s", err)
 	}

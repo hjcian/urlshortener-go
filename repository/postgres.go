@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func InitPGRepo(port int, host, dbuser, dbname, password string) (Repository, error) {
+func NewPGRepo(port int, host, dbuser, dbname, password string) (Repository, error) {
 	args := fmt.Sprintf("host=%s port=%v user=%s dbname=%s password=%s TimeZone=Asia/Taipei",
 		host, port, dbuser, dbname, password)
 	db, err := gorm.Open(postgres.Open(args), &gorm.Config{})
@@ -20,7 +20,7 @@ func InitPGRepo(port int, host, dbuser, dbname, password string) (Repository, er
 	return &postgresRepository{db: db}, err
 }
 
-func InitPGRepoWith(dial gorm.Dialector, cfg gorm.Config) (Repository, error) {
+func NewPGRepoWith(dial gorm.Dialector, cfg gorm.Config) (Repository, error) {
 	db, err := gorm.Open(dial, &cfg)
 
 	db.AutoMigrate(&models.Url{})
