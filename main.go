@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"goshorturl/cache"
 	"goshorturl/config"
 	"goshorturl/idgenerator"
 	"goshorturl/logger"
@@ -36,7 +37,8 @@ func main() {
 	}
 
 	idGenerator := idgenerator.New(db, zaplogger)
+	cache := cache.New(db, zaplogger)
 
-	r := server.NewRouter(db, idGenerator, zaplogger, env.RedirectOrigin)
+	r := server.NewRouter(cache, idGenerator, zaplogger, env.RedirectOrigin)
 	r.Run(fmt.Sprintf(":%d", env.AppPort))
 }

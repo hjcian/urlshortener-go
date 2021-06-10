@@ -133,7 +133,7 @@ func TestUrlController_Upload(t *testing.T) {
 			exec.WillReturnError(errInternalDBError)
 			mock.ExpectRollback() // called by gorm
 		}
-		// background
+		// this sql will be called in background
 		query := mock.ExpectQuery(regexp.QuoteMeta(`SELECT "id" FROM "urls" WHERE deleted_at IS NOT NULL OR expired_at < $1`))
 		query.WithArgs(anyExpireTime{}).WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	}

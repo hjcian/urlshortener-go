@@ -10,4 +10,5 @@ type Entry struct {
 type Engine interface {
 	Get(id string) (*Entry, bool)
 	Set(id string, entry *Entry, expiration time.Duration)
+	Delete(id string)
 }

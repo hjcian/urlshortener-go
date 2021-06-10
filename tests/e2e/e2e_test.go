@@ -47,4 +47,6 @@ func Test_Server_Health(t *testing.T) {
 	e.GET("/health").
 		Expect().
 		Status(http.StatusOK).JSON().Object().ValueEqual("status", "ok")
+	// upload(ok) -> redirect(ok) -> delete(ok) -> redirect(not found)
+
 }

@@ -37,3 +37,7 @@ func (i *inMemory) Get(id string) (*cacher.Entry, bool) {
 func (i *inMemory) Set(id string, entry *cacher.Entry, expiration time.Duration) {
 	i.engine.Set(id, *entry, expiration)
 }
+
+func (i *inMemory) Delete(id string) {
+	i.engine.Delete(id)
+}
