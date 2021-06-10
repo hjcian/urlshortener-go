@@ -2,7 +2,7 @@ package cache
 
 import (
 	"context"
-	"goshorturl/cache/engine"
+	"goshorturl/cache/cacher"
 	"goshorturl/cache/inmemory"
 	"goshorturl/pkg/multicas"
 	"goshorturl/repository"
@@ -26,7 +26,7 @@ func New(db repository.Repository) repository.Repository {
 
 type cacheLogic struct {
 	db    repository.Repository
-	cache engine.Engine
+	cache cacher.Engine
 	mcas  multicas.MultiCAS
 }
 
@@ -50,7 +50,7 @@ func (r *cacheLogic) Get(ctx context.Context, id string) (string, error) {
 		if err != nil {
 			exp = cacheMissExp
 		}
-		r.cache.Set(id, &engine.Entry{Url: url, Err: err}, exp)
+		r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
 		return url, err
 	}
 	//
