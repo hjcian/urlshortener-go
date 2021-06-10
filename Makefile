@@ -52,7 +52,7 @@ stop-all: stop-redis
 restart-all: restart-pg
 restart-all: restart-redis
 
-.PHONY: unittest, e2e, test-all, see-coverage
+.PHONY: unittest, e2e, alltest, see-coverage
 unittest:
 	@${GOTEST} `go list ./... | grep -v /e2e`
 
@@ -60,8 +60,8 @@ e2e: restart-all
 e2e:
 	@${GOTEST} `go list ./... | grep /e2e`
 
-test-all: restart-all
-test-all:
+alltest: restart-all
+alltest:
 	@${GOTEST} ./...
 
 see-coverage:
