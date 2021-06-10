@@ -1,5 +1,9 @@
 # URL Shortener - A Go implementation
 
+## Prerequisites
+- docker
+- `timeout` command (via `brew install coreutils` if run on MacOS)
+
 ## Tests
 - `make unittest`
 - `make e2e`

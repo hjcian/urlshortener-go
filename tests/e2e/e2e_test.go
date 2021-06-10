@@ -6,12 +6,16 @@ import (
 	"goshorturl/logger"
 	"goshorturl/repository"
 	"goshorturl/server"
+	"time"
+
 	"log"
 	"net/http"
 	"testing"
 
 	"github.com/gavv/httpexpect/v2"
 )
+
+const expireAtLayout = "2006-01-02T15:04:05Z"
 
 func Test_Server_Health(t *testing.T) {
 	zaplogger, err := logger.New()
@@ -43,10 +47,42 @@ func Test_Server_Health(t *testing.T) {
 		},
 	})
 
-	// Assert response
-	e.GET("/health").
-		Expect().
-		Status(http.StatusOK).JSON().Object().ValueEqual("status", "ok")
-	// upload(ok) -> redirect(ok) -> delete(ok) -> redirect(not found)
+	t.Run("health check", func(t *testing.T) {
+		e.GET("/health").
+			Expect().
+			Status(http.StatusOK).JSON().Object().ValueEqual("status", "ok")
+	})
 
+	t.Run("1.upload(ok)=>2.redirect(ok)=>3.delete(ok)=>4.redirect(not found)", func(t *testing.T) {
+		uploadedUrl := "http://example.com"
+
+		req := map[string]interface{}{
+			"url":      uploadedUrl,
+			"expireAt": time.Now().Add(24 * time.Hour).Format(expireAtLayout),
+		}
+		// 1.
+		obj := e.POST("/api/v1/urls").WithJSON(req).
+			Expect().
+			Status(http.StatusOK).
+			JSON().Object()
+		obj.Keys().ContainsOnly("id", "shortUrl")
+
+		// 2.
+		id := obj.Value("id").Raw()
+		e.GET("/{id}", id).
+			WithRedirectPolicy(httpexpect.DontFollowRedirects). // hint: https://github.com/gavv/httpexpect/blob/c8d94c7cd00324483558c1877cdcd6350138335e/e2e_redirect_test.go#L61
+			Expect().
+			StatusRange(httpexpect.Status3xx).
+			Header("location").Equal(uploadedUrl)
+
+		// 3.
+		e.DELETE("/api/v1/urls/{id}", id).
+			Expect().
+			Status(http.StatusNoContent)
+
+		// 4.
+		e.GET("/{id}", id).
+			Expect().
+			StatusRange(http.StatusNotFound)
+	})
 }

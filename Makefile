@@ -10,11 +10,13 @@ GOTEST=$(GOCMD) test -covermode=atomic -coverprofile=./coverage.out -v -timeout=
 
 .EXPORT_ALL_VARIABLES:
 APP_PORT?=8080
-CACHE_PORT?=6679
+DB_HOST?=localhost
 DB_PORT?=5555
 DB_NAME?=test
 DB_USER?=test
 DB_PASSWORD?=test
+# CACHE_HOST?=localhost
+# CACHE_PORT?=6679
 
 .PHONY: pg, stop-pg, restart-pg, redis, stop-redis, restart-redis, restart-all, stop-all
 stop-pg:
@@ -29,6 +31,7 @@ pg:
 		-e POSTGRES_USER=${DB_USER} \
 		-e POSTGRES_PASSWORD=${DB_PASSWORD} \
 		postgres:12
+	@timeout 90s bash -c 'until docker exec urlpg pg_isready ; do sleep 1 ; done'
 
 restart-pg: stop-pg
 restart-pg: pg
@@ -56,7 +59,8 @@ restart-all: restart-redis
 unittest:
 	@${GOTEST} `go list ./... | grep -v /e2e`
 
-e2e: restart-all
+# TODO: using `restart-all` after supporting redis cache engine
+e2e: restart-pg
 e2e:
 	@${GOTEST} `go list ./... | grep /e2e`
 
