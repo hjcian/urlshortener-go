@@ -20,10 +20,9 @@ func NewPGRepo(port int, host, dbuser, dbname, password string) (Repository, err
 	return &postgresRepository{db: db}, err
 }
 
-func NewPGRepoWith(dial gorm.Dialector, cfg gorm.Config) (Repository, error) {
+// NewPGRepoForTestWith is just for testing purposes (no calling AutoMigrate())
+func NewPGRepoForTestWith(dial gorm.Dialector, cfg gorm.Config) (Repository, error) {
 	db, err := gorm.Open(dial, &cfg)
-
-	db.AutoMigrate(&models.Url{})
 	return &postgresRepository{db: db}, err
 }
 
@@ -38,6 +37,25 @@ func (p *postgresRepository) Create(ctx context.Context, id, url string, expired
 		ExpiredAt: expiredAt,
 	}
 	return p.db.Create(&urlEntry).Error
+}
+
+func (p *postgresRepository) Update(ctx context.Context, id, url string, expiredAt time.Time) error {
+	res := p.db.
+		Debug().
+		Model(&models.Url{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"url":        url,
+			"expired_at": expiredAt,
+			"deleted_at": nil,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected != 1 {
+		return ErrRecordNotFound
+	}
+	return nil
 }
 
 func (p *postgresRepository) Delete(ctx context.Context, id string) error {
@@ -64,4 +82,31 @@ func (p *postgresRepository) Get(ctx context.Context, id string) (string, error)
 		return "", err
 	}
 	return result.Url, nil
+}
+
+func (p *postgresRepository) SelectDeletedAndExpired(ctx context.Context, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = -1 // cancel limit condition
+	}
+
+	var urls []models.Url
+	if err := p.db.
+		Debug().
+		Select("id").
+		Unscoped(). // Find soft deleted records
+		Where("deleted_at IS NOT NULL").
+		Or("expired_at < ?", time.Now()).
+		Find(&urls).
+		Limit(limit).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, ErrRecordNotFound
+		}
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(urls))
+	for _, url := range urls {
+		ids = append(ids, url.Id)
+	}
+	return ids, nil
 }

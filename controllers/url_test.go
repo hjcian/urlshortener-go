@@ -46,7 +46,7 @@ func getMockDB(t *testing.T) (repository.Repository, sqlmock.Sqlmock) {
 	sqlDB, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 
-	repo, err := repository.NewPGRepoWith(
+	repo, err := repository.NewPGRepoForTestWith(
 		postgres.New(postgres.Config{Conn: sqlDB}),
 		gorm.Config{
 			Logger: logger.Default.LogMode(logger.Info), // display SQL statement for debugging
@@ -115,10 +115,13 @@ func TestUrlController_Upload(t *testing.T) {
 	}
 
 	injectMock := func(mock sqlmock.Sqlmock, jsonArgs jsonArgs, result driver.Result, wantDBError bool) {
+		// because ID generator is called in background, so turn off the in-order mode
+		mock.MatchExpectationsInOrder(false)
+
 		mock.ExpectBegin() // called by gorm
 		exec := mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO "urls" ("id","url","expired_at","created_at","updated_at","deleted_at") VALUES ($1,$2,$3,$4,$5,$6)`))
 		if !wantDBError {
-			// convert to and back, do the samething in application code
+			// convert to and back
 			expiredAtStr := jsonArgs.expiredAt.Format(expireAtLayout)
 			expiredAt, _ := time.Parse(expireAtLayout, expiredAtStr)
 
@@ -130,6 +133,9 @@ func TestUrlController_Upload(t *testing.T) {
 			exec.WillReturnError(errInternalDBError)
 			mock.ExpectRollback() // called by gorm
 		}
+		// background
+		query := mock.ExpectQuery(regexp.QuoteMeta(`SELECT "id" FROM "urls" WHERE deleted_at IS NOT NULL OR expired_at < $1`))
+		query.WithArgs(anyExpireTime{}).WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	}
 
 	for _, tt := range tests {
@@ -151,7 +157,7 @@ func TestUrlController_Upload(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
-				IDGenerator:    idgenerator.New(gormDB),
+				IDGenerator:    idgenerator.New(gormDB, logger),
 				RedirectOrigin: redirectOrigin,
 			}
 			u.Upload(c)
@@ -248,7 +254,7 @@ func TestUrlController_Delete(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
-				IDGenerator:    idgenerator.New(gormDB),
+				IDGenerator:    idgenerator.New(gormDB, logger),
 				RedirectOrigin: "",
 			}
 			u.Delete(c)
@@ -331,7 +337,7 @@ func TestUrlController_Redirect(t *testing.T) {
 			u := UrlController{
 				DB:             gormDB,
 				Log:            logger,
-				IDGenerator:    idgenerator.New(gormDB),
+				IDGenerator:    idgenerator.New(gormDB, logger),
 				RedirectOrigin: "",
 			}
 			u.Redirect(c)

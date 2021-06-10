@@ -7,15 +7,19 @@ import (
 	"fmt"
 	"goshorturl/pkg/concurrentqueue"
 	"goshorturl/repository"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/jxskiss/base62"
+	"go.uber.org/zap"
 )
 
 const (
-	totalLetters = 6
-	encodedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	totalLetters     = 6
+	encodedChars     = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	selectAll        = -1
+	doRecycleTimeout = 30 * time.Second
 )
 
 type empty struct{}
@@ -65,15 +69,17 @@ type IDGenerator interface {
 	Get(ctx context.Context, url string, expiredAt time.Time) (string, error)
 }
 
-func New(db repository.Repository) IDGenerator {
+func New(db repository.Repository, logger *zap.Logger) IDGenerator {
 	return &idGenerator{
-		db:  db,
-		idq: concurrentqueue.New(),
+		db:     db,
+		logger: logger,
+		idq:    concurrentqueue.New(),
 	}
 }
 
 type idGenerator struct {
 	db          repository.Repository
+	logger      *zap.Logger
 	idq         concurrentqueue.Queue
 	doRecycling int32
 }
@@ -81,27 +87,44 @@ type idGenerator struct {
 func (i *idGenerator) Get(ctx context.Context, url string, expiredAt time.Time) (string, error) {
 	id, err := i.idq.Dequeue()
 	if err != concurrentqueue.ErrEmpty {
-		// TODO: update DB
-		// enqueue the id back if error occurs
+		i.logger.Debug("get id from queue", zap.String("id", id))
+		err := i.db.Update(ctx, id, url, expiredAt)
+		if err != nil {
+			i.logger.Error("refresh id with new meta error", zap.Error(err))
+			i.idq.Enqueue(id)
+			return "", err
+		}
 		return id, nil
 	}
-	// call recycle only queue is empty
-	i.recycleID()
+	go i.recycleID(ctx)
+
 	// create a new id
 	id = generate(url)
 	if err := i.db.Create(ctx, id, url, expiredAt); err != nil {
+		i.logger.Error("create new record error", zap.Error(err))
 		return "", err
 	}
 	return id, nil
 }
 
 // RecycleID will guarantee only one goroutine can trigger recycling process
-func (i *idGenerator) recycleID() {
+func (i *idGenerator) recycleID(ctx context.Context) {
 	if atomic.CompareAndSwapInt32(&i.doRecycling, 0, 1) {
-		// TODO:
-		// select expired and deleted from DB
-		ids := []string{}
-		i.idq.BatchEnqueue(ids)
+		i.logger.Debug("trigger recycling process")
+
+		ctxWithDealine, cancel := context.WithTimeout(ctx, doRecycleTimeout)
+		defer cancel()
+
+		ids, err := i.db.SelectDeletedAndExpired(ctxWithDealine, selectAll)
+		if err != nil && err != repository.ErrRecordNotFound {
+			i.logger.Error("recycle deleted ids error", zap.Error(err))
+			i.doRecycling = 0
+			return
+		}
+		i.logger.Debug("recycled ids", zap.Int("count", len(ids)), zap.String("ids", strings.Join(ids, " | ")))
+		if len(ids) > 0 {
+			i.idq.BatchEnqueue(ids)
+		}
 		i.doRecycling = 0
 	}
 }

@@ -37,9 +37,19 @@ func (r *cacheLogic) Create(ctx context.Context, id, url string, expiredAt time.
 	return r.db.Create(ctx, id, url, expiredAt)
 }
 
+// Update just wraps the db.Update().
+func (r *cacheLogic) Update(ctx context.Context, id, url string, expiredAt time.Time) error {
+	return r.db.Update(ctx, id, url, expiredAt)
+}
+
 // Delete just wraps the db.Delete().
 func (r *cacheLogic) Delete(ctx context.Context, id string) error {
 	return r.db.Delete(ctx, id)
+}
+
+// SelectDeletedAndExpired just wraps the db.SelectDeletedAndExpired().
+func (r *cacheLogic) SelectDeletedAndExpired(ctx context.Context, limit int) ([]string, error) {
+	return r.db.SelectDeletedAndExpired(ctx, limit)
 }
 
 // Get caches results that retrieved from database.

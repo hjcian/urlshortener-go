@@ -10,17 +10,26 @@ var (
 )
 
 type Queue interface {
+	Enqueue(id string)
 	BatchEnqueue(ids []string)
 	Dequeue() (string, error)
 }
 
 func New() Queue {
-	return &filo{}
+	return &filo{
+		queue: make([]string, 0),
+	}
 }
 
 type filo struct {
 	mu    sync.RWMutex
 	queue []string
+}
+
+func (c *filo) Enqueue(id string) {
+	c.mu.Lock()
+	c.queue = append(c.queue, id)
+	c.mu.Unlock()
 }
 
 func (c *filo) BatchEnqueue(ids []string) {

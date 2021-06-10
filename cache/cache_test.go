@@ -3,9 +3,9 @@ package cache
 import (
 	"context"
 	"fmt"
+	"goshorturl/repository"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,16 +13,9 @@ import (
 const exampleURL = "http://example.com"
 
 type dbRecorder struct {
+	repository.UnimplementedRepository
 	getCount int
 	mutex    sync.Mutex
-}
-
-func (d *dbRecorder) Create(ctx context.Context, id, url string, expiredAt time.Time) error {
-	return nil
-}
-
-func (d *dbRecorder) Delete(ctx context.Context, id string) error {
-	return nil
 }
 
 func (d *dbRecorder) Get(ctx context.Context, id string) (string, error) {
