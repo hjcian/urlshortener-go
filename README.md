@@ -13,15 +13,15 @@
 - `make`
 - `go` (1.15+)
 - `docker`
-- `timeout` (via `brew install coreutils` if run on MacOS)
+- `timeout`
+  - *via `brew install coreutils` if you run on MacOS*
 
 ## Local Tests
 - `make unittest`
-  - 〽️ *will fail occasionally due to some async process*
 - `make e2e`
 - `make alltest`
 - `make see-coverage`
-  - *see coverage after tests*
+  - *see coverage report after tests*
 
 ## System Design Thinking
 ### Why use 6-letters as url id?

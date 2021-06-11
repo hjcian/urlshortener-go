@@ -18,6 +18,7 @@ import (
 
 type recorder struct {
 	repository.Repository
+	wg          *sync.WaitGroup
 	mu          sync.Mutex
 	createCount int
 	updateCount int
@@ -41,13 +42,16 @@ func (r *recorder) Update(ctx context.Context, id, url string, expiredAt time.Ti
 func (r *recorder) SelectDeletedAndExpired(ctx context.Context, limit int) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	defer r.wg.Done()
 	r.selectCount++
 	return nil, nil
 }
 
 func TestIDGenerator_Get(t *testing.T) {
 	t.Run("id stack is empty", func(t *testing.T) {
-		db := &recorder{}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		db := &recorder{wg: &wg}
 		idgenerator := New(db, zap.NewNop())
 
 		id, err := idgenerator.Get(context.Background(), "http://example.com", time.Now())
@@ -56,7 +60,8 @@ func TestIDGenerator_Get(t *testing.T) {
 		assert.Equal(t, 1, db.createCount)
 		assert.Equal(t, 0, db.updateCount)
 
-		time.Sleep(time.Second)
+		// to wait the SelectDeletedAndExpired() to be called
+		wg.Wait()
 		assert.Equal(t, 1, db.selectCount)
 	})
 	t.Run("id stack has element", func(t *testing.T) {
@@ -77,7 +82,7 @@ func TestIDGenerator_Get(t *testing.T) {
 		assert.Equal(t, 0, db.createCount)
 		assert.Equal(t, 1, db.updateCount)
 
-		time.Sleep(time.Second)
+		// no need to wait, because the SelectDeletedAndExpired() will not to be called
 		assert.Equal(t, 0, db.selectCount)
 	})
 }
