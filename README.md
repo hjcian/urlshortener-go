@@ -33,12 +33,14 @@
 
 ### About ID Generator
 - recycle strategy
-  - 此練習使用一個 in-memory 的 queue 來儲存回收的 id
-    - (TODO) 此練習的實作採用 FILO 的方式稍微減少一點 memory leak 的可能 (`slice` 若一直***去頭***，不利於 golang 的 GC)，但目前若 `slice` 的 underling array 一直成長，就會持續佔用記憶體
-  - 當某次 request 發現 queue 已空時，則觸發回收機制
+  - 此練習使用一個 in-memory 的 stack 來儲存回收的 id
+    - 因為 FIFO 的 queue 會造成 memory leak (`s = s[1:]`，底下的 underlying array 並沒有被歸還)
+    - 故採用 FILO 的 stack 來做，稍微減少一點 leak 的情況，但若 `slice` 的 capacity 一直成長，仍會持續佔用記憶體
+    - (TODO) 改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作，就能避免 memory leak。可再做個 benchmark 看看效能差多少
+  - 當某次 request 發現 stack 已空時，則觸發回收機制
     - 但該次 request 還是即時產生 id
     - 而同時間僅允許一個 request 觸發此機制，避免高併發的情況對 DB 造成大量查詢
-    - 下一個 request 進來時期待就可從 queue 中取得回收的 id
+    - 下一個 request 進來時期待就可從 stack 中取得回收的 id
   - (TODO) 除了透過 request lazy triggering，也可再進一步設計一個 background job (background goroutine) 定期朝 DB 撈資料即可
 - (TODO) 整個 id generator 可進一步考慮與此服務解耦，成為單獨的 ID generator service
   - 對 url shortener 來說，就只是向 ID generator service 取一個 ID，其餘的不管

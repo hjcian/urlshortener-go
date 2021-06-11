@@ -2,7 +2,7 @@ package idgenerator
 
 import (
 	"context"
-	"goshorturl/pkg/concurrentqueue"
+	"goshorturl/pkg/concurrentstack"
 	"goshorturl/repository"
 	"strings"
 	"sync"
@@ -46,7 +46,7 @@ func (r *recorder) SelectDeletedAndExpired(ctx context.Context, limit int) ([]st
 }
 
 func TestIDGenerator_Get(t *testing.T) {
-	t.Run("id queue is empty", func(t *testing.T) {
+	t.Run("id stack is empty", func(t *testing.T) {
 		db := &recorder{}
 		idgenerator := New(db, zap.NewNop())
 
@@ -59,16 +59,16 @@ func TestIDGenerator_Get(t *testing.T) {
 		time.Sleep(time.Second)
 		assert.Equal(t, 1, db.selectCount)
 	})
-	t.Run("id queue has element", func(t *testing.T) {
+	t.Run("id stack has element", func(t *testing.T) {
 		expected := "qwerty"
-		queue := concurrentqueue.New()
-		queue.Enqueue(expected)
+		stack := concurrentstack.New()
+		stack.Push(expected)
 
 		db := &recorder{}
 		idgenerator := &idGenerator{
 			db:     db,
 			logger: zap.NewNop(),
-			idq:    queue,
+			ids:    stack,
 		}
 
 		id, err := idgenerator.Get(context.Background(), "http://example.com", time.Now())

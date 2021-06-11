@@ -1,4 +1,4 @@
-package concurrentqueue
+package concurrentstack
 
 import (
 	"fmt"
@@ -8,23 +8,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Enqueue(t *testing.T) {
-	queue := New()
+func Test_Push(t *testing.T) {
+	stack := New()
 	numG := 100000
 	var wg sync.WaitGroup
 	wg.Add(numG)
 	for i := 0; i < numG; i++ {
 		go func(i int) {
 			defer wg.Done()
-			queue.Enqueue(fmt.Sprintln(i))
+			stack.Push(fmt.Sprintln(i))
 		}(i)
 	}
 	wg.Wait()
-	assert.Equal(t, numG, queue.Len())
+	assert.Equal(t, numG, stack.Len())
 }
 
-func Test_BatchEnqueue(t *testing.T) {
-	queue := New()
+func Test_BatchPush(t *testing.T) {
+	stack := New()
 	factor := 2
 	numG := 100000
 	var wg sync.WaitGroup
@@ -36,25 +36,25 @@ func Test_BatchEnqueue(t *testing.T) {
 			for j := 0; j < factor; j++ {
 				ids = append(ids, fmt.Sprintln(j))
 			}
-			queue.BatchEnqueue(ids)
+			stack.BatchPush(ids)
 		}(i)
 	}
 	wg.Wait()
-	assert.Equal(t, numG*factor, queue.Len())
+	assert.Equal(t, numG*factor, stack.Len())
 }
 
-func Test_Dequeue(t *testing.T) {
+func Test_Pop(t *testing.T) {
 	t.Run("empty should return err", func(t *testing.T) {
-		queue := New()
-		ele, err := queue.Dequeue()
+		stack := New()
+		ele, err := stack.Pop()
 		assert.Error(t, err)
 		assert.Empty(t, ele)
 	})
 	t.Run("empty should return err", func(t *testing.T) {
-		queue := New()
+		stack := New()
 		numG := 100000
 		for i := 0; i < numG; i++ {
-			queue.Enqueue(fmt.Sprintln(i))
+			stack.Push(fmt.Sprintln(i))
 		}
 
 		numDecrease := numG / 2
@@ -64,7 +64,7 @@ func Test_Dequeue(t *testing.T) {
 		for i := 0; i < numDecrease; i++ {
 			go func(i int) {
 				defer wg.Done()
-				_, err := queue.Dequeue()
+				_, err := stack.Pop()
 				errCollect <- err
 			}(i)
 		}
@@ -78,7 +78,7 @@ func Test_Dequeue(t *testing.T) {
 			}
 		}
 		assert.Equal(t, 0, countErr)
-		assert.Equal(t, numG-numDecrease, queue.Len())
+		assert.Equal(t, numG-numDecrease, stack.Len())
 	})
 
 }

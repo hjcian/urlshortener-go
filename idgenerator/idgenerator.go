@@ -5,7 +5,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"goshorturl/pkg/concurrentqueue"
+	"goshorturl/pkg/concurrentstack"
 	"goshorturl/repository"
 	"strings"
 	"sync/atomic"
@@ -73,25 +73,25 @@ func New(db repository.Repository, logger *zap.Logger) IDGenerator {
 	return &idGenerator{
 		db:     db,
 		logger: logger,
-		idq:    concurrentqueue.New(),
+		ids:    concurrentstack.New(),
 	}
 }
 
 type idGenerator struct {
 	db          repository.Repository
 	logger      *zap.Logger
-	idq         concurrentqueue.Queue
+	ids         concurrentstack.Stack
 	doRecycling int32
 }
 
 func (i *idGenerator) Get(ctx context.Context, url string, expiredAt time.Time) (string, error) {
-	id, err := i.idq.Dequeue()
-	if err != concurrentqueue.ErrEmpty {
-		i.logger.Debug("get id from queue", zap.String("id", id))
+	id, err := i.ids.Pop()
+	if err != concurrentstack.ErrEmpty {
+		i.logger.Debug("get id from pool", zap.String("id", id))
 		err := i.db.Update(ctx, id, url, expiredAt)
 		if err != nil {
 			i.logger.Error("refresh id with new meta error", zap.Error(err))
-			i.idq.Enqueue(id)
+			i.ids.Push(id)
 			return "", err
 		}
 		return id, nil
@@ -123,7 +123,7 @@ func (i *idGenerator) recycleID(ctx context.Context) {
 		}
 		i.logger.Debug("recycled ids", zap.Int("count", len(ids)), zap.String("ids", strings.Join(ids, " | ")))
 		if len(ids) > 0 {
-			i.idq.BatchEnqueue(ids)
+			i.ids.BatchPush(ids)
 		}
 		i.doRecycling = 0
 	}
