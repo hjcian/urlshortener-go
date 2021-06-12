@@ -58,8 +58,6 @@ func getMockDB(t *testing.T) (repository.Repository, sqlmock.Sqlmock) {
 }
 
 func TestUrlController_Upload(t *testing.T) {
-	// t.Skip()
-
 	gin.SetMode(gin.TestMode)
 	logger, _ := zap.NewDevelopment()
 
@@ -180,8 +178,6 @@ func TestUrlController_Upload(t *testing.T) {
 }
 
 func TestUrlController_Delete(t *testing.T) {
-	// t.Skip()
-
 	gin.SetMode(gin.TestMode)
 	logger, _ := zap.NewDevelopment()
 
@@ -265,8 +261,6 @@ func TestUrlController_Delete(t *testing.T) {
 }
 
 func TestUrlController_Redirect(t *testing.T) {
-	// t.Skip()
-
 	gin.SetMode(gin.TestMode)
 	logger, _ := zap.NewDevelopment()
 

@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
-type recorder struct {
-	repository.Repository
+type dbRecorder struct {
+	repository.UnimplementedRepository
 	wg          *sync.WaitGroup
 	mu          sync.Mutex
 	createCount int
@@ -22,25 +22,25 @@ type recorder struct {
 	selectCount int
 }
 
-func (r *recorder) Create(ctx context.Context, id, url string, expiredAt time.Time) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.createCount++
+func (d *dbRecorder) Create(ctx context.Context, id, url string, expiredAt time.Time) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.createCount++
 	return nil
 }
 
-func (r *recorder) Update(ctx context.Context, id, url string, expiredAt time.Time) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.updateCount++
+func (d *dbRecorder) Update(ctx context.Context, id, url string, expiredAt time.Time) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.updateCount++
 	return nil
 }
 
-func (r *recorder) SelectDeletedAndExpired(ctx context.Context, limit int) ([]string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	defer r.wg.Done()
-	r.selectCount++
+func (d *dbRecorder) SelectDeletedAndExpired(ctx context.Context, limit int) ([]string, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	defer d.wg.Done()
+	d.selectCount++
 	return nil, nil
 }
 
@@ -48,7 +48,7 @@ func TestIDGenerator_Get(t *testing.T) {
 	t.Run("id stack is empty", func(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
-		db := &recorder{wg: &wg}
+		db := &dbRecorder{wg: &wg}
 		idgenerator := New(db, zap.NewNop())
 
 		id, err := idgenerator.Get(context.Background(), "http://example.com", time.Now())
@@ -66,7 +66,7 @@ func TestIDGenerator_Get(t *testing.T) {
 		stack := concurrentstack.New()
 		stack.Push(expected)
 
-		db := &recorder{}
+		db := &dbRecorder{}
 		idgenerator := &idGenerator{
 			db:     db,
 			logger: zap.NewNop(),

@@ -7,10 +7,7 @@ import (
 	gocache "github.com/patrickmn/go-cache"
 )
 
-//
-// Default in-memory cache engine
-//
-
+// New returns an in-memory cache for default usage.
 func New(defaultExp, defaultClearInterval time.Duration) cacher.Engine {
 	return &inMemory{
 		engine: gocache.New(defaultExp, defaultClearInterval),

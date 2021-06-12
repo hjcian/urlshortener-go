@@ -41,50 +41,50 @@ type cacheTestSuite struct {
 	numG       int
 }
 
-func (suit *cacheTestSuite) SetupTest() {
-	suit.dbRecorder = dbRecorder{}
-	suit.cache = New(&suit.dbRecorder, zap.NewNop())
-	suit.ctx = context.Background()
-	suit.numG = 200000
+func (suite *cacheTestSuite) SetupTest() {
+	suite.dbRecorder = dbRecorder{}
+	suite.cache = New(&suite.dbRecorder, zap.NewNop())
+	suite.ctx = context.Background()
+	suite.numG = 200000
 }
 
-func (suit *cacheTestSuite) Test_Get_only_one_goroutine_can_hit_database_if_they_query_same_id() {
+func (suite *cacheTestSuite) Test_Get_only_one_goroutine_can_hit_database_if_they_query_same_id() {
 
 	var wg sync.WaitGroup
-	wg.Add(suit.numG)
-	for i := 0; i < suit.numG; i++ {
+	wg.Add(suite.numG)
+	for i := 0; i < suite.numG; i++ {
 		go func() {
 			defer wg.Done()
-			suit.cache.Get(suit.ctx, "aaaaaa")
+			suite.cache.Get(suite.ctx, "aaaaaa")
 		}()
 	}
 	wg.Wait()
 
-	suit.Equal(1, suit.dbRecorder.getCount)
+	suite.Equal(1, suite.dbRecorder.getCount)
 }
 
-func (suit *cacheTestSuite) Test_Get_every_goroutine_is_able_to_hit_database_once_then_hit_cache_while_next_call() {
+func (suite *cacheTestSuite) Test_Get_every_goroutine_is_able_to_hit_database_once_then_hit_cache_while_next_call() {
 	concurrentCall := func(numG int) {
 		var wg sync.WaitGroup
 		wg.Add(numG)
 		for i := 0; i < numG; i++ {
 			go func(i int) {
 				defer wg.Done()
-				suit.cache.Get(suit.ctx, fmt.Sprintln(i))
+				suite.cache.Get(suite.ctx, fmt.Sprintln(i))
 			}(i)
 		}
 		wg.Wait()
 	}
-	concurrentCall(suit.numG) // first call
-	suit.Equal(suit.numG, suit.dbRecorder.getCount, "hit database")
-	concurrentCall(suit.numG) // second call
-	suit.Equal(suit.numG, suit.dbRecorder.getCount, "hit cache, so `getCount` does not increse")
+	concurrentCall(suite.numG) // first call
+	suite.Equal(suite.numG, suite.dbRecorder.getCount, "hit database")
+	concurrentCall(suite.numG) // second call
+	suite.Equal(suite.numG, suite.dbRecorder.getCount, "hit cache, so `getCount` does not increse")
 }
 
-func (suit *cacheTestSuite) Test_Delete_should_hit_database() {
-	err := suit.cache.Delete(suit.ctx, "aaaaaa")
-	suit.NoError(err)
-	suit.Equal(1, suit.dbRecorder.deleteCount)
+func (suite *cacheTestSuite) Test_Delete_should_hit_database() {
+	err := suite.cache.Delete(suite.ctx, "aaaaaa")
+	suite.NoError(err)
+	suite.Equal(1, suite.dbRecorder.deleteCount)
 	// TODO: use bloom filter to avoid non-existent record has chance to hit database
 }
 
