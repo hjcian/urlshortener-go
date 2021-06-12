@@ -28,27 +28,27 @@
 - 根據[我在我另一個 repo 中梳理的思路](https://github.com/hjcian/urlshortener-python#thoughts-about-scalability)，故此練習一樣選擇 6 碼作為短網址的 id
 ### SQL or NoSQL?
 - 若預估儲存量達到 billions 的數量級 ([DB 選用基準](https://github.com/hjcian/urlshortener-python#3-db-%E9%81%B8%E7%94%A8%E5%9F%BA%E6%BA%96))，可能得直接選用 NoSQL 作為資料儲存較適合
-- 但此練習先使用 postgres (SQL database) 作為資料儲存，並預先訂定 `interface` 供未來抽換
-  - (TODO) 實作介接 MongoDB (or other NoSQL database) 的實作品
+- 但此練習先簡單地使用 postgres (SQL database) 作為資料儲存，並訂定 `Repository interface` 供抽換底層儲存方案
+  - (TODO) 完成介接 MongoDB (or other NoSQL database) 的實作品
 
 ### About ID Generator
 - recycle strategy
   - 此練習使用一個 in-memory 的 stack 來儲存回收的 id
     - 因為 FIFO 的 queue 會造成 memory leak (`s = s[1:]`，底下的 underlying array 並沒有被歸還)
     - 故採用 FILO 的 stack 來做，稍微減少一點 leak 的情況，但若 `slice` 的 capacity 一直成長，仍會持續佔用記憶體
-    - (TODO) 改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作，就能避免 memory leak。可再做個 benchmark 看看效能差多少
-  - 當某次 request 發現 stack 已空時，則觸發回收機制
-    - 但該次 request 還是即時產生 id
-    - 而同時間僅允許一個 request 觸發此機制，避免高併發的情況對 DB 造成大量查詢
-    - 下一個 request 進來時期待就可從 stack 中取得回收的 id
-  - (TODO) 除了透過 request lazy triggering，也可再進一步設計一個 background job (background goroutine) 定期朝 DB 撈資料即可
+    - (TODO) 改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作 stack(or queue) 來避免 memory leak。可再做個 benchmark 看看效能差多少
+  - 觸發回收機制的時機為某次 request 發現 stack 為空時
+    - 但該次 request 還是使用即時產生 id、不等待回收處理完成。回收處理留到背景作業
+    - 而同時間僅允許一個 request 觸發回收處理程序，避免高併發的情況下，多個回收處理程序對 DB 造成大量 queries
+    - 回收處理完之後就會填充 stack，後續的 request 就可從 stack 中取得回收的 id
+  - (TODO) 除了透過被動地觸發回收機制，也許可再進一步做一個 background goroutine 定期向 DB 回收 id
 - (TODO) 整個 id generator 可進一步考慮與此服務解耦，成為單獨的 ID generator service
   - 對 url shortener 來說，就只是向 ID generator service 取一個 ID，其餘的不管
   - ID generator service 就專心負責處理儲存資料至 DB 及從 DB 回收 ID 的任務
 
 ### Caching Strategy
 - 此練習使用 in-memory cache library 實作
-  - (TODO) 正式環境應再實作介接 Redis/Memcached 的實作品
+  - (TODO) 完成介接 Redis (or Memcached) 的實作品
 - cache miss strategy
   - 面對 **existent shorten URL** 的高併發存取請求，cache miss 可能會引發 cache stampede 的問題 (hotkey)
     - 在 CAP 的妥協中，此練習選擇實作 AP，也就是在 concurrent requests 的情境下只允許一個 goroutine 可以去觸發 cache update 以避免 cache stampede，其餘的 requests 就先回應 `404`
