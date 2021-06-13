@@ -18,7 +18,7 @@ import (
 
 const expireAtLayout = "2006-01-02T15:04:05Z"
 
-func Test_Server_Health(t *testing.T) {
+func Test_Server(t *testing.T) {
 	zaplogger, err := logger.New()
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %s", err)
