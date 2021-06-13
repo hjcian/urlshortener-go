@@ -23,8 +23,12 @@ type multiCASTestSuite struct {
 func (suite *multiCASTestSuite) SetupTest() {
 	suite.versions = []multiCASVerSuite{
 		{
+			"version 1 - use sync.Mutex",
+			newMultiCAS_v1_forTest(),
+		},
+		{
 			"version 2 - use sync.RWMutex",
-			NewMultiCAS(),
+			newMultiCAS_v2_forTest(),
 		},
 	}
 	suite.numG = 300000

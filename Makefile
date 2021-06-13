@@ -57,7 +57,7 @@ restart-all: restart-redis
 
 .PHONY: unittest, e2e, alltest, see-coverage
 unittest:
-	@${GOTEST} `go list ./... | grep -v /e2e`
+	@${GOTEST} `go list ./... | grep -v "/e2e\|/experiment"`
 
 # TODO: using `restart-all` after supporting redis cache engine
 e2e: restart-pg
