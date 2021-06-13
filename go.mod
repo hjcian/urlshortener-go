@@ -15,6 +15,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/klauspost/compress v1.13.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/rShetty/asyncwait v0.0.0-20180203043142-1e02703eb90e
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/valyala/fasthttp v1.26.0 // indirect

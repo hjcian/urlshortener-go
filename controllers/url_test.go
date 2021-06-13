@@ -16,6 +16,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
+	"github.com/rShetty/asyncwait"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -160,7 +161,6 @@ func TestUrlController_Upload(t *testing.T) {
 			}
 			u.Upload(c)
 			assert.Equal(t, tt.expectedStatusCode, r.Code)
-			assert.NoError(t, mock.ExpectationsWereMet())
 
 			if r.Code == http.StatusOK {
 				var resp struct {
@@ -173,6 +173,14 @@ func TestUrlController_Upload(t *testing.T) {
 				assert.NotEmpty(t, resp.ShortUrl)
 				assert.Equal(t, fmt.Sprintf("%s/%s", redirectOrigin, resp.ID), resp.ShortUrl)
 			}
+
+			// should wait the `db.SelectDeletedAndExpired()` to be called
+			var expectationsWereNotMetErr error
+			asyncwait.NewAsyncWait(1000, 100).Check(func() bool {
+				expectationsWereNotMetErr = mock.ExpectationsWereMet()
+				return expectationsWereNotMetErr == nil
+			})
+			assert.NoError(t, expectationsWereNotMetErr)
 		})
 	}
 }
