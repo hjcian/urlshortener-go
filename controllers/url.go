@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"goshorturl/idgenerator"
@@ -14,7 +13,9 @@ import (
 	"go.uber.org/zap"
 )
 
-const expireAtLayout = "2006-01-02T15:04:05Z"
+const (
+	expireAtLayout = "2006-01-02T15:04:05Z"
+)
 
 type uploadReqData struct {
 	Url         string `json:"url"`
@@ -65,7 +66,7 @@ func (u UrlController) Upload(c *gin.Context) {
 		return
 	}
 
-	id, err := u.IDGenerator.Get(context.Background(), req.Url, req.expireAt)
+	id, err := u.IDGenerator.Get(c.Request.Context(), req.Url, req.expireAt)
 	if err != nil {
 		u.Log.Error("upload error", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal upload error"})
@@ -86,7 +87,7 @@ func (u UrlController) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := u.DB.Delete(context.Background(), urlID); err != nil {
+	if err := u.DB.Delete(c.Request.Context(), urlID); err != nil {
 		if err == repository.ErrRecordNotFound {
 			u.Log.Warn("id not exists", zap.String("id", urlID))
 			c.JSON(http.StatusNotFound, gin.H{"error": "id not exists"})
@@ -106,7 +107,8 @@ func (u UrlController) Redirect(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	oriUrl, err := u.DB.Get(context.Background(), urlID)
+
+	oriUrl, err := u.DB.Get(c.Request.Context(), urlID)
 	if err != nil {
 		if err == repository.ErrRecordNotFound {
 			u.Log.Warn("record not found", zap.Error(err))

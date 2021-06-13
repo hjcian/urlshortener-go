@@ -113,13 +113,13 @@ func TestUrlController_Upload(t *testing.T) {
 	}
 
 	injectMock := func(mock sqlmock.Sqlmock, jsonArgs jsonArgs, result driver.Result, wantDBError bool) {
-		// because ID generator is called in background, so turn off the in-order mode
+		// because `db.SelectDeletedAndExpired()` will be called in background, so turn off the in-order mode
 		mock.MatchExpectationsInOrder(false)
 
 		mock.ExpectBegin() // called by gorm
 		exec := mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO "urls" ("id","url","expired_at","created_at","updated_at","deleted_at") VALUES ($1,$2,$3,$4,$5,$6)`))
 		if !wantDBError {
-			// convert to and back
+			// convert to and back to trim the clocking
 			expiredAtStr := jsonArgs.expiredAt.Format(expireAtLayout)
 			expiredAt, _ := time.Parse(expireAtLayout, expiredAtStr)
 
@@ -131,7 +131,7 @@ func TestUrlController_Upload(t *testing.T) {
 			exec.WillReturnError(errInternalDBError)
 			mock.ExpectRollback() // called by gorm
 		}
-		// this sql will be called in background
+		// this sql will be used by `db.SelectDeletedAndExpired()`
 		query := mock.ExpectQuery(regexp.QuoteMeta(`SELECT "id" FROM "urls" WHERE deleted_at IS NOT NULL OR expired_at < $1`))
 		query.WithArgs(anyExpireTime{}).WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	}
