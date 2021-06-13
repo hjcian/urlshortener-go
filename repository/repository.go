@@ -18,6 +18,7 @@ type Repository interface {
 	SelectDeletedAndExpired(ctx context.Context, limit int) ([]string, error)
 }
 
+// UnimplementedRepository is mainly used in tests to reuse the codes.
 type UnimplementedRepository struct{}
 
 func (u *UnimplementedRepository) Create(ctx context.Context, id, url string, expiredAt time.Time) error {

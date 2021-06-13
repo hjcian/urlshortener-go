@@ -46,7 +46,7 @@ func getMockDB(t *testing.T) (repository.Repository, sqlmock.Sqlmock) {
 	sqlDB, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 
-	repo, err := repository.NewPGRepoForTestWith(
+	repo, err := repository.NewPGForTestWith(
 		postgres.New(postgres.Config{Conn: sqlDB}),
 		gorm.Config{
 			Logger: logger.Default.LogMode(logger.Info), // display SQL statement for debugging

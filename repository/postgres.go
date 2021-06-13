@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewPGRepo(port int, host, dbuser, dbname, password string) (Repository, error) {
+func NewPG(port int, host, dbuser, dbname, password string) (Repository, error) {
 	args := fmt.Sprintf("host=%s port=%v user=%s dbname=%s password=%s TimeZone=Asia/Taipei",
 		host, port, dbuser, dbname, password)
 	db, err := gorm.Open(postgres.Open(args), &gorm.Config{})
@@ -20,8 +20,8 @@ func NewPGRepo(port int, host, dbuser, dbname, password string) (Repository, err
 	return &postgresRepository{db: db}, err
 }
 
-// NewPGRepoForTestWith is just for testing purposes (no calling AutoMigrate())
-func NewPGRepoForTestWith(dial gorm.Dialector, cfg gorm.Config) (Repository, error) {
+// NewPGForTestWith is used for testing purposes (NO calls AutoMigrate() internally).
+func NewPGForTestWith(dial gorm.Dialector, cfg gorm.Config) (Repository, error) {
 	db, err := gorm.Open(dial, &cfg)
 	return &postgresRepository{db: db}, err
 }

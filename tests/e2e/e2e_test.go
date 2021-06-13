@@ -28,7 +28,7 @@ func Test_Server_Health(t *testing.T) {
 		log.Fatalf("failed to process env: %s", err)
 	}
 
-	db, err := repository.NewPGRepo(env.DBPort, env.DBHost, env.DBUser, env.DBName, env.DBPassword)
+	db, err := repository.NewPG(env.DBPort, env.DBHost, env.DBUser, env.DBName, env.DBPassword)
 	if err != nil {
 		log.Fatalf("failed to connect db: %s", err)
 	}
