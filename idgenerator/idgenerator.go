@@ -34,7 +34,7 @@ var (
 
 // generate returns a 6-letters id by given URL.
 func generate(url string) string {
-	// padding with time.Now().UnixNano() to reduce collision probability if give same URL
+	// padding with time.Now().UnixNano() to reduce collision probability if passing same URL
 	bytes := md5.Sum([]byte(fmt.Sprintf("%s%d", url, time.Now().UnixNano())))
 	encoded := encoder.EncodeToString(bytes[:])
 	return encoded[:totalLetters]
@@ -96,7 +96,9 @@ func (i *idGenerator) Get(ctx context.Context, url string, expiredAt time.Time) 
 		}
 		return id, nil
 	}
-	go i.recycleID(ctx)
+	// stack is empty
+	// try to trigger background recycling process
+	i.recycleID(ctx)
 
 	// create a new id
 	id = generate(url)
@@ -107,24 +109,26 @@ func (i *idGenerator) Get(ctx context.Context, url string, expiredAt time.Time) 
 	return id, nil
 }
 
-// RecycleID will guarantee only one goroutine can trigger recycling process
+// RecycleID will guarantee only one goroutine can trigger background recycling process
 func (i *idGenerator) recycleID(ctx context.Context) {
 	if atomic.CompareAndSwapInt32(&i.doRecycling, 0, 1) {
-		i.logger.Debug("trigger recycling process")
+		go func() {
+			i.logger.Debug("trigger recycling process")
 
-		ctxWithDealine, cancel := context.WithTimeout(ctx, doRecycleTimeout)
-		defer cancel()
+			ctxWithDealine, cancel := context.WithTimeout(ctx, doRecycleTimeout)
+			defer cancel()
 
-		ids, err := i.db.SelectDeletedAndExpired(ctxWithDealine, selectAll)
-		if err != nil && err != repository.ErrRecordNotFound {
-			i.logger.Error("recycle deleted ids error", zap.Error(err))
+			ids, err := i.db.SelectDeletedAndExpired(ctxWithDealine, selectAll)
+			if err != nil && err != repository.ErrRecordNotFound {
+				i.logger.Error("recycle deleted ids error", zap.Error(err))
+				i.doRecycling = 0
+				return
+			}
+			i.logger.Debug("recycled ids", zap.Int("count", len(ids)), zap.String("ids", strings.Join(ids, " | ")))
+			if len(ids) > 0 {
+				i.ids.BatchPush(ids)
+			}
 			i.doRecycling = 0
-			return
-		}
-		i.logger.Debug("recycled ids", zap.Int("count", len(ids)), zap.String("ids", strings.Join(ids, " | ")))
-		if len(ids) > 0 {
-			i.ids.BatchPush(ids)
-		}
-		i.doRecycling = 0
+		}()
 	}
 }
