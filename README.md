@@ -3,7 +3,7 @@
   - [Platform Prerequisites](#platform-prerequisites)
   - [Local Tests](#local-tests)
   - [System Design Thinking](#system-design-thinking)
-    - [Why use 6-letters as url id?](#why-use-6-letters-as-url-id)
+    - [Why use 6-letters as URL id?](#why-use-6-letters-as-url-id)
     - [SQL or NoSQL?](#sql-or-nosql)
     - [About ID Generator](#about-id-generator)
     - [Caching Strategy](#caching-strategy)
@@ -24,16 +24,20 @@
   - *see coverage report after tests*
 
 ## System Design Thinking
-### Why use 6-letters as url id?
-- 根據[我在我另一個 repo 中梳理的思路](https://github.com/hjcian/urlshortener-python#thoughts-about-scalability)，故此練習一樣選擇 6 碼作為短網址的 id
+### Why use 6-letters as URL id?
+- 根據我在[我的另一個 repo](https://github.com/hjcian/urlshortener-python#thoughts-about-scalability)中梳理過的思路，節錄重點：
+  - 假設以 100 QPS 的寫入流量，且最長的網址上傳有效期限為五年，則總計需要約 **15 billions** 的短網址 id
+  - 並且使用 10個數字+26個大小寫英文字母，共 62 個 letters 作為 id 的編碼字元，那麼僅需要 6 位數即可 ([ref: Token generation strategy](https://github.com/hjcian/urlshortener-python#token-generation-strategy))
+  - 故此練習選擇 6 碼作為短網址的 id 並實作之
+
 ### SQL or NoSQL?
-- 若預估儲存量達到 billions 的數量級 ([DB 選用基準](https://github.com/hjcian/urlshortener-python#3-db-%E9%81%B8%E7%94%A8%E5%9F%BA%E6%BA%96))，可能得直接選用 NoSQL 作為資料儲存較適合
-- 但此練習先簡單地使用 postgres (SQL database) 作為資料儲存，並訂定 `Repository interface` 供抽換底層儲存方案
+- 若預估儲存量達到 billions 的數量級 ([red: DB 選用基準](https://github.com/hjcian/urlshortener-python#3-db-%E9%81%B8%E7%94%A8%E5%9F%BA%E6%BA%96))，可能 NoSQL 較適合
+- 但此練習先簡單地使用 postgres (SQL database) 作為資料儲存，並訂定 `Repository interface` 供抽換存方案時使用
   - (TODO) 完成介接 MongoDB (or other NoSQL database) 的實作品
 
 ### About ID Generator
-- recycle strategy
-  - 此練習使用一個 in-memory 的 stack 來儲存回收的 id
+- ID 回收策略
+  - 首先，此練習使用一個 in-memory 的 stack 來儲存回收的 id
     - 因為 FIFO 的 queue 會造成 memory leak (`s = s[1:]`，底下的 underlying array 並沒有被歸還)
     - 故採用 FILO 的 stack 來做，稍微減少一點 leak 的情況，但若 `slice` 的 capacity 一直成長，仍會持續佔用記憶體
     - (TODO) 改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作 stack(or queue) 來避免 memory leak。可再做個 benchmark 看看效能差多少
@@ -49,14 +53,17 @@
 ### Caching Strategy
 - 此練習使用 in-memory cache library 實作
   - (TODO) 完成介接 Redis (or Memcached) 的實作品
+    - 由於 app 因版本更迭重啟的機會很大，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
+      - *NOTE: cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
 - cache miss strategy
-  - 面對 **existent shorten URL** 的高併發存取請求，cache miss 可能會引發 cache stampede 的問題 (hotkey)
-    - 在 CAP 的妥協中，此練習選擇實作 AP，也就是在 concurrent requests 的情境下只允許一個 goroutine 可以去觸發 cache update 以避免 cache stampede，其餘的 requests 就先回應 `404`
-    - 又當若此 URL 已過期，會再從 DB 中取得已過期的資訊並緩存。此步驟因為 AP 的考量也只會有一個 request 進到 DB，其餘的 requests 收到 `404` 也合理
-    - (TODO) 但可能會因預設的 cache 時間過短，cache 過期時剛好遇到高併發請求，只有一個人可成功轉址，造成其餘 clients 需要重試、體驗不佳。故可在上傳時就將資料更新至 cache，並設定過期時間與 DB 內的一致
-      - 此舉可降低使用者需要重試的機會；但會增加 cache 的負擔、儲存更多的資料
-    - 或選擇**實作 CP**，其他 concurrent requests 都阻塞直到 cache updated，再從 cache 中取資料。但此舉是讓 client 等待，可能也是另一種不佳的體驗
-    - (TODO) 又已過期或已刪除的資料，i.e. 不存在於 DB 的資料，可再進一步使用 **`bloom filter`** 放在 cache layer 之前，以降低 cache 儲存的負擔
+  - 面對 **existent shorten URL** 的高併發存取請求，假設存取的是同一個 id，在 cache miss 時的 cache updating 可能會引起 cache stampede 的問題 (hotkey)
+    - 故在 CAP 的妥協中，此練習選擇實作 AP，也就是在 concurrent requests 的情境下只允許一個 goroutine 可以去觸發 cache update 以避免 cache stampede，其餘的 requests 就先回應 `404`
+    - 又考慮到可能會因預設的 cache 過期時間可能小於資料真實過期時間，結果 cache 過期後剛好遇到高併發請求，造成只有一個 client 可成功執行 cache update 及轉址、其餘 clients 需要重試、體驗不佳的情況，故此練習選擇在首次上傳時就將資料更新至 cache，並設定過期時間與真實過期時間一致
+      - (trade-off) 此舉讓 cache 與 storage 資料一致，理論上不會有 clients 需要重試的機會。***但會增加 cache 的負擔、儲存更多的資料***
+    - 當 cached URL 過期時，仍需要再從 DB 中取得資訊並緩存
+      - 此步驟因為 AP 的考量，也只會有一個 request 進到 DB 取得該筆已過期的資訊。其餘的 requests 即時收到 `404` 也與未來從快取中取得 `404` 結果一致
+      - (trade-off) 或選擇**實作 CP**，其他 concurrent requests 都阻塞直到 cache updated，再從 cache 中取資料。***但此舉是讓 client 等待，可能也是另一種不佳的體驗***
+    - (TODO) 可使用 **`bloom filter`** 放在 cache layer 之前，來確定***一定不在 storage 的資料***，以降低 cache 儲存的負擔、也減少進到 database 的機會
   - 面對 **non-existent shorten URL** 的高併發存取請求，恐會有 cache penetration，此練習目前選擇先用 cache 存起來來避免
     - (TODO) 適合使用 **`bloom filter`** 放在 cache layer 之前，以降低 cache 儲存的負擔
 - (TODO) 若使用 Redis 作為 cache server，可考慮利用 [`SETNX`](https://redis.io/commands/setnx)+[`Pub/Sub`](https://redis.io/topics/pubsub) 的功能來實作鎖的機制

@@ -64,7 +64,7 @@ e2e: restart-pg
 e2e:
 	@${GOTEST} `go list ./... | grep /e2e`
 
-alltest: restart-all
+alltest: restart-pg
 alltest:
 	@${GOTEST} ./...
 
