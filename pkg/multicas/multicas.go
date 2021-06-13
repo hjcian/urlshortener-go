@@ -11,17 +11,26 @@ type MultiCAS interface {
 }
 
 func NewMultiCAS() MultiCAS {
-	return &multicas{
+	return &multicas_v2{
 		table: make(map[interface{}]bool),
 	}
 }
 
-type multicas struct {
+// newMultiCAS_v1_forTest returns a version 1 of MultiCAS.
+//
+// version 2 uses sync.Mutex as a baseline implementation.
+func newMultiCAS_v1_forTest() MultiCAS {
+	return &multicas_v2{
+		table: make(map[interface{}]bool),
+	}
+}
+
+type multicas_v1 struct {
 	mu    sync.Mutex
 	table map[interface{}]bool
 }
 
-func (m *multicas) Set(key interface{}) (ok bool) {
+func (m *multicas_v1) Set(key interface{}) (ok bool) {
 	m.mu.Lock()
 	if !m.table[key] {
 		m.table[key] = true
@@ -31,7 +40,46 @@ func (m *multicas) Set(key interface{}) (ok bool) {
 	return ok
 }
 
-func (m *multicas) Unset(key interface{}) {
+func (m *multicas_v1) Unset(key interface{}) {
+	m.mu.Lock()
+	if m.table[key] {
+		delete(m.table, key)
+	}
+	m.mu.Unlock()
+}
+
+// NewMultiCAS_v2 returns a version 2 of MultiCAS.
+//
+// version 2 uses sync.RWMutex to improve Set() performance around 10% compare to version 1.
+func newMultiCAS_v2_forTest() MultiCAS {
+	return &multicas_v2{
+		table: make(map[interface{}]bool),
+	}
+}
+
+type multicas_v2 struct {
+	mu    sync.RWMutex
+	table map[interface{}]bool
+}
+
+func (m *multicas_v2) Set(key interface{}) (ok bool) {
+	m.mu.RLock()
+	isSet := m.table[key]
+	m.mu.RUnlock()
+	if isSet {
+		return false
+	}
+
+	m.mu.Lock()
+	if !m.table[key] {
+		m.table[key] = true
+		ok = true
+	}
+	m.mu.Unlock()
+	return ok
+}
+
+func (m *multicas_v2) Unset(key interface{}) {
 	m.mu.Lock()
 	if m.table[key] {
 		delete(m.table, key)
