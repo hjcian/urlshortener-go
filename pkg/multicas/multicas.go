@@ -7,7 +7,6 @@ import (
 type MultiCAS interface {
 	// Set will guarantee there is only one of concurrent goroutines can set successfully.
 	Set(key interface{}) bool
-	//
 	Unset(key interface{})
 }
 
@@ -34,6 +33,8 @@ func (m *multicas) Set(key interface{}) (ok bool) {
 
 func (m *multicas) Unset(key interface{}) {
 	m.mu.Lock()
-	m.table[key] = false
+	if m.table[key] {
+		delete(m.table, key)
+	}
 	m.mu.Unlock()
 }
