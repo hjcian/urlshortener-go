@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/gavv/httpexpect/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 const expireAtLayout = "2006-01-02T15:04:05Z"
@@ -84,5 +85,45 @@ func Test_Server_Health(t *testing.T) {
 		e.GET("/{id}", id).
 			Expect().
 			StatusRange(http.StatusNotFound)
+	})
+
+	t.Run("1.upload A(ok, get idX)=>2.upload A again(ok, get idY)=>3.redirect idX to A(ok)=>4.redirect idY to A(ok)", func(t *testing.T) {
+		uploadedUrl := "http://example.com"
+
+		req := map[string]interface{}{
+			"url":      uploadedUrl,
+			"expireAt": time.Now().Add(24 * time.Hour).Format(expireAtLayout),
+		}
+		// 1.
+		obj := e.POST("/api/v1/urls").WithJSON(req).
+			Expect().
+			Status(http.StatusOK).
+			JSON().Object()
+		obj.Keys().ContainsOnly("id", "shortUrl")
+		idX := obj.Value("id").Raw()
+
+		// 2.
+		obj = e.POST("/api/v1/urls").WithJSON(req).
+			Expect().
+			Status(http.StatusOK).
+			JSON().Object()
+		obj.Keys().ContainsOnly("id", "shortUrl")
+		idY := obj.Value("id").Raw()
+
+		assert.NotEqual(t, idX, idY, "two di should different")
+
+		// 3.
+		e.GET("/{id}", idX).
+			WithRedirectPolicy(httpexpect.DontFollowRedirects).
+			Expect().
+			StatusRange(httpexpect.Status3xx).
+			Header("location").Equal(uploadedUrl)
+
+		// 4.
+		e.GET("/{id}", idY).
+			WithRedirectPolicy(httpexpect.DontFollowRedirects).
+			Expect().
+			StatusRange(httpexpect.Status3xx).
+			Header("location").Equal(uploadedUrl)
 	})
 }
