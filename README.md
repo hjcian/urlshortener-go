@@ -35,29 +35,29 @@
 
 ### SQL or NoSQL?
 - 若預估儲存量達到 billions 的數量級 ([red: DB 選用基準](https://github.com/hjcian/urlshortener-python#3-db-%E9%81%B8%E7%94%A8%E5%9F%BA%E6%BA%96))，可能 NoSQL 較適合
-- 但此練習先簡單地使用 postgres (SQL database) 作為資料儲存，並訂定 `Repository interface` 供抽換存方案時使用
+- 但此練習先簡單地使用 postgres (SQL database) 作為資料儲存，並訂定 `Repository interface` 供抽換儲存方案時使用
   - 🚧 (TODO) 完成介接 MongoDB (or other NoSQL database) 的實作品
 
 ### About ID Generator
 - ID 回收策略
-  - 首先，此練習使用一個 in-memory 的 stack 來儲存回收的 id
-    - 因為 FIFO 的 queue 會造成 memory leak (`s = s[1:]`，底下的 underlying array 並沒有被歸還)
-    - 故採用 FILO 的 stack 來做，稍微減少一點 leak 的情況，但若 `slice` 的 capacity 一直成長，仍會持續佔用記憶體
-    - 🚧 (TODO) 改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作 stack(or queue) 來避免 memory leak。可再做個 benchmark 看看效能差多少
+  - 首先，此練習實作一個 in-memory 的 goroutine-safe stack 來儲存回收的 id
+    - 因為 FIFO 的 queue 會造成 memory leak (i.e. 假如使用 `s = s[1:]`，underlying array 並沒有被歸還)，故採用 FILO 的 stack 來做，稍微減緩 leakage 的情況。但若 `slice` 的 capacity 一直成長，仍會持續佔用記憶體
+    - 🚧 (TODO) 故考慮改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作 stack(or queue) 來避免 memory leak
   - 觸發回收機制的時機為某次 request 發現 stack 為空時
-    - 但該次 request 還是使用即時產生 id、不等待回收處理完成。回收處理留到背景作業
-    - 而同時間僅允許一個 request 觸發回收處理程序，避免高併發的情況下，多個回收處理程序對 DB 造成大量 queries
-    - 回收處理完之後就會填充 stack，後續的 request 就可從 stack 中取得回收的 id
-  - 🚧 (TODO) 除了透過被動地觸發回收機制，也許可再進一步做一個 background goroutine 定期向 DB 回收 id
+    - 但該次 request 還是使用即時產生 id、不等待回收處理完成；回收處理流程則移至背景作業
+    - 在回收處理流程結束前，僅允許一個 request 觸發；避免高併發的情況下，多個回收處理程序對 DB 造成大量 queries
+    - 回收處理流程結束後就會填充 stack，後續的 requests 就可從 stack 中取得回收的 id
+  - 🚧 (TODO) 除了透過被動地觸發，可再進一步做一個 background goroutine 定期向 DB 回收 id
 - 🚧 (TODO) 整個 id generator 可進一步考慮與此服務解耦，成為單獨的 ID generator service
   - 對 url shortener 來說，就只是向 ID generator service 取一個 ID，其餘的不管
-  - ID generator service 就專心負責處理儲存資料至 DB 及從 DB 回收 ID 的任務
+  - ID generator service 就專心負責處理儲存資料至 DB，及從 DB 回收 ID 的任務
+  - 解耦之後也能專心處理此節點的效率瓶頸 ([ref: Online token generation 可能會是效率瓶頸，如何解決？](https://github.com/hjcian/urlshortener-python#2-online-token-generation-%E5%8F%AF%E8%83%BD%E6%9C%83%E6%98%AF%E6%95%88%E7%8E%87%E7%93%B6%E9%A0%B8%E5%A6%82%E4%BD%95%E8%A7%A3%E6%B1%BA))
 
 ### Caching Strategy
-- 此練習在 `cache/cacher/` 中定義 `Engine interface` 提供**快取引擎**需實作的接口，以支援在 `cache/cache.go` 中的業務邏輯
+- 此練習在 [`cache/cacher/cacher.go`](./cache/cacher/cacher.go) 中定義 `Engine interface` 提供**快取引擎**需實作的接口，以支援在 `cache/cache.go` 中的業務邏輯
   - 至於實際的**快取引擎**的實作品，此練習實作了以下方案：
-    - ✔️ env 提供 `CACHE_MODE=inmemory` 來使用 in-memory cache 方案 (cache engine 為 [`patrickmn/go-cache`](https://github.com/patrickmn/go-cache))
-    - ✔️ env 提供 `CACHE_MODE=redis` 來使用外部 Redis server 作為快取伺服器 (redis client lib 為 [`gomodule/redigo`](https://github.com/gomodule/redigo))
+    - ✔️ env 提供 `CACHE_MODE=inmemory` 來使用 in-memory cache 方案
+    - ✔️ env 提供 `CACHE_MODE=redis` 來使用外部 Redis server 作為快取伺服器
       - 由於 application 本身因版本更迭、修 BUG 而重啟的機會很高，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
         - 📓 *cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
       - 🚧 (TODO) 尋找適合的 mocking 方法，於 unittest 中測試 redis 的實作品
@@ -77,7 +77,7 @@
 
 
 ## References
-- cache related
+- Cache related discussions
   - [Caches, Promises and Locks](https://redislabs.com/blog/caches-promises-locks/)
   - [3 major problems and solutions in the cache world](https://medium.com/@mena.meseha/3-major-problems-and-solutions-in-the-cache-world-155ecae41d4f)
   - [有關 Cache 的一些筆記](https://kkc.github.io/2020/03/27/cache-note/)
