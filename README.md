@@ -51,10 +51,13 @@
   - ID generator service 就專心負責處理儲存資料至 DB 及從 DB 回收 ID 的任務
 
 ### Caching Strategy
-- 此練習使用 in-memory cache library 實作
-  - (TODO) 完成介接 Redis (or Memcached) 的實作品
-    - 由於 app 因版本更迭重啟的機會很大，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
-      - *NOTE: cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
+- 此練習定義 `cacher.Engine interface` 提供**快取引擎**需實作的接口，以支援在 `cache.go` 中的業務需求處理邏輯
+  - 至於實際的**快取引擎**的實作品，此練習實作了以下方案：
+    - [x] 提供 `UseInMemoryCache()` 選項來使用 in-memory cache 方案 (cache engine 為 [`patrickmn/go-cache`](https://github.com/patrickmn/go-cache))
+    - [x] 提供 `UseRedis()` 選項來使用外部 Redis server 作為快取伺服器 (redis client lib 為 [`gomodule/redigo`](https://github.com/gomodule/redigo))
+      - 由於 app 因版本更迭重啟的機會很大，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
+        - *NOTE: cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
+      - (TODO) 尋找適合的 mocking 方法，於 unittest 中測試 redis 的實作品
 - cache miss strategy
   - 面對 **existent shorten URL** 的高併發存取請求，假設存取的是同一個 id，在 cache miss 時的 cache updating 可能會引起 cache stampede 的問題 (hotkey)
     - 故在 CAP 的妥協中，此練習選擇實作 AP，也就是在 concurrent requests 的情境下只允許一個 goroutine 可以去觸發 cache update 以避免 cache stampede，其餘的 requests 就先回應 `404`
@@ -66,7 +69,6 @@
     - (TODO) 可使用 **`bloom filter`** 放在 cache layer 之前，來確定***一定不在 storage 的資料***，以降低 cache 儲存的負擔、也減少進到 database 的機會
   - 面對 **non-existent shorten URL** 的高併發存取請求，恐會有 cache penetration，此練習目前選擇先用 cache 存起來來避免
     - (TODO) 適合使用 **`bloom filter`** 放在 cache layer 之前，以降低 cache 儲存的負擔
-- (TODO) 若使用 Redis 作為 cache server，可考慮利用 [`SETNX`](https://redis.io/commands/setnx)+[`Pub/Sub`](https://redis.io/topics/pubsub) 的功能來實作鎖的機制
 
 ## References
 - cache related
