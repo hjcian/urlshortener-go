@@ -43,8 +43,8 @@ func main() {
 		log.Fatalf("failed to connect db: %s", err)
 	}
 
-	idGenerator := idgenerator.New(db, zaplogger)
 	cache := cache.New(db, zaplogger)
+	idGenerator := idgenerator.New(cache, zaplogger)
 
 	r := server.NewRouter(cache, idGenerator, zaplogger, env.RedirectOrigin)
 	run(r, fmt.Sprintf(":%d", env.AppPort))

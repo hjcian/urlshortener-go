@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"goshorturl/cache"
 	"goshorturl/config"
 	"goshorturl/idgenerator"
 	"goshorturl/logger"
@@ -33,9 +34,10 @@ func Test_Server(t *testing.T) {
 	if err != nil {
 		log.Fatalf("failed to connect db: %s", err)
 	}
-	idGenerator := idgenerator.New(db, zaplogger)
+	cache := cache.New(db, zaplogger)
+	idGenerator := idgenerator.New(cache, zaplogger)
 
-	engine := server.NewRouter(db, idGenerator, zaplogger, env.RedirectOrigin)
+	engine := server.NewRouter(cache, idGenerator, zaplogger, env.RedirectOrigin)
 
 	e := httpexpect.WithConfig(httpexpect.Config{
 		Client: &http.Client{
