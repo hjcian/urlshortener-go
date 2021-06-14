@@ -33,7 +33,11 @@ type cacheLogic struct {
 
 // Get caches results that retrieved from database.
 func (r *cacheLogic) Get(ctx context.Context, id string) (string, error) {
-	cached, found := r.cache.Get(id)
+	cached, found, err := r.cache.Get(id)
+	if err != nil && err != cacher.ErrEntryNotFound {
+		r.logger.Warn("cache error", zap.Error(err))
+		return "", err
+	}
 	if found {
 		r.logger.Debug(
 			"found cached record",
@@ -47,7 +51,11 @@ func (r *cacheLogic) Get(ctx context.Context, id string) (string, error) {
 	r.logger.Debug("cache missed", zap.String("id", id))
 	// TODO: use bloomfilter to filter out the non-existed key to reduce the
 	// caching load
-	if r.cache.Check(id) {
+	checked, err := r.cache.Check(id)
+	if err != nil {
+		r.logger.Warn("cache check id error", zap.Error(err), zap.String("id", id))
+	}
+	if checked {
 		defer r.cache.Uncheck(id)
 		// To avoid cache stampede, Check() ensures that only one goroutine
 		// able to trigger cache recomputation until that process finished.

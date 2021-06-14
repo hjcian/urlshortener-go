@@ -21,31 +21,33 @@ type inMemory struct {
 	mcas   multicas.MultiCAS
 }
 
-func (i *inMemory) Get(id string) (*cacher.Entry, bool) {
+func (i *inMemory) Get(id string) (*cacher.Entry, bool, error) {
 	data, found := i.engine.Get(id)
 	if !found {
-		return nil, false
+		return nil, false, cacher.ErrEntryNotFound
 	}
 	entry, ok := data.(cacher.Entry)
 	if !ok {
-		// TODO: return additional error for caller to handle?
-		return nil, false
+		return nil, false, cacher.ErrSerializeFailed
 	}
-	return &entry, true
+	return &entry, true, nil
 }
 
-func (i *inMemory) Set(id string, entry *cacher.Entry, expiration time.Duration) {
+func (i *inMemory) Set(id string, entry *cacher.Entry, expiration time.Duration) error {
 	i.engine.Set(id, *entry, expiration)
+	return nil
 }
 
-func (i *inMemory) Delete(id string) {
+func (i *inMemory) Delete(id string) error {
 	i.engine.Delete(id)
+	return nil
 }
 
-func (i *inMemory) Check(id string) bool {
-	return i.mcas.Set(id)
+func (i *inMemory) Check(id string) (bool, error) {
+	return i.mcas.Set(id), nil
 }
 
-func (i *inMemory) Uncheck(id string) {
+func (i *inMemory) Uncheck(id string) error {
 	i.mcas.Unset(id)
+	return nil
 }

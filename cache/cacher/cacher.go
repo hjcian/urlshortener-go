@@ -1,6 +1,14 @@
 package cacher
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrEntryNotFound   = errors.New("entry not found")
+	ErrSerializeFailed = errors.New("serialize failed")
+)
 
 type Entry struct {
 	Url string
@@ -8,9 +16,9 @@ type Entry struct {
 }
 
 type Engine interface {
-	Get(id string) (*Entry, bool)
-	Set(id string, entry *Entry, expiration time.Duration)
-	Delete(id string)
+	Get(id string) (*Entry, bool, error)
+	Set(id string, entry *Entry, expiration time.Duration) error
+	Delete(id string) error
 
 	// Check is used for multiple goroutines try to get the access permission
 	// for given id.
@@ -22,7 +30,7 @@ type Engine interface {
 	// permission away.
 	//
 	// This method is goroutine-safe.
-	Check(id string) bool
+	Check(id string) (bool, error)
 	// Uncheck will return the permission for given id.
-	Uncheck(id string)
+	Uncheck(id string) error
 }
