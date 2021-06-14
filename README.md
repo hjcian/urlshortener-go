@@ -54,7 +54,7 @@
   - 解耦之後也能專心處理此節點的效率瓶頸 ([ref: Online token generation 可能會是效率瓶頸，如何解決？](https://github.com/hjcian/urlshortener-python#2-online-token-generation-%E5%8F%AF%E8%83%BD%E6%9C%83%E6%98%AF%E6%95%88%E7%8E%87%E7%93%B6%E9%A0%B8%E5%A6%82%E4%BD%95%E8%A7%A3%E6%B1%BA))
 
 ### Caching Strategy
-- 此練習在 [`cache/cacher/cacher.go`](./cache/cacher/cacher.go) 中定義 `Engine interface` 提供**快取引擎**需實作的接口，以支援在 `cache/cache.go` 中的業務邏輯
+- 此練習在 [`cache/cacher/cacher.go`](./cache/cacher/cacher.go) 中定義 `Engine interface` 提供**快取引擎**需實作的接口，以支援在 [`cache/cache.go`](./cache/cache.go) 中的業務邏輯
   - 至於實際的**快取引擎**的實作品，此練習實作了以下方案：
     - ✔️ env 提供 `CACHE_MODE=inmemory` 來使用 in-memory cache 方案
     - ✔️ env 提供 `CACHE_MODE=redis` 來使用外部 Redis server 作為快取伺服器
