@@ -12,7 +12,14 @@ type Engine interface {
 	Set(id string, entry *Entry, expiration time.Duration)
 	Delete(id string)
 
-	// Check checks whether a goroutine has get the access permission for given id.
+	// Check is used for multiple goroutines try to get the access permission
+	// for given id.
+	//
+	// Return `true` means current goroutine get the permission, and has
+	// responsibility to call Uncheck();
+	//
+	// Return `false` means that an another goroutine has already took the
+	// permission away.
 	//
 	// This method is goroutine-safe.
 	Check(id string) bool

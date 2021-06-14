@@ -45,11 +45,12 @@ func (r *cacheLogic) Get(ctx context.Context, id string) (string, error) {
 
 	// cache miss
 	r.logger.Debug("cache missed", zap.String("id", id))
-	// TODO: use bloomfilter to filter out the non-existed key to reduce the caching load
+	// TODO: use bloomfilter to filter out the non-existed key to reduce the
+	// caching load
 	if r.cache.Check(id) {
 		defer r.cache.Uncheck(id)
-		// To avoid cache stampede, mcas.Set() ensures that only allow
-		// one goroutine can trigger cache recomputation.
+		// To avoid cache stampede, Check() ensures that only one goroutine
+		// able to trigger cache recomputation until that process finished.
 		r.logger.Debug("recompute cache", zap.String("id", id))
 		url, err := r.db.Get(ctx, id)
 		exp := validEntryExp
@@ -59,8 +60,8 @@ func (r *cacheLogic) Get(ctx context.Context, id string) (string, error) {
 		r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
 		return url, err
 	}
-	// In case of cache stampede, this implementation choose to guarantee the availability,
-	// so just return record not found
+	// In case of cache stampede, this implementation choose to guarantee
+	// the availability, so just return record not found
 	return "", repository.ErrRecordNotFound
 }
 
