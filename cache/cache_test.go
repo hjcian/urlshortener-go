@@ -86,13 +86,12 @@ type cacheTestSuite struct {
 
 func (suite *cacheTestSuite) SetupTest() {
 	suite.dbRecorder = dbRecorder{}
-	suite.cache = New(&suite.dbRecorder, zap.NewNop())
+	suite.cache = New(&suite.dbRecorder, zap.NewNop(), UseInMemoryCache())
 	suite.ctx = context.Background()
 	suite.numG = 200000
 }
 
 func (suite *cacheTestSuite) Test_Get_only_one_goroutine_can_hit_database_if_they_query_same_id() {
-
 	var wg sync.WaitGroup
 	wg.Add(suite.numG)
 	for i := 0; i < suite.numG; i++ {

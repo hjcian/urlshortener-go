@@ -8,6 +8,7 @@ import (
 var (
 	ErrEntryNotFound   = errors.New("entry not found")
 	ErrSerializeFailed = errors.New("serialize failed")
+	ErrUnexpectedError = errors.New("unexpected error")
 )
 
 type Entry struct {

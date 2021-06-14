@@ -4,6 +4,7 @@ import (
 	"context"
 	"goshorturl/cache/cacher"
 	"goshorturl/cache/inmemory"
+	"goshorturl/cache/redis"
 	"goshorturl/repository"
 	"time"
 
@@ -17,11 +18,40 @@ const (
 	emptyEntryExp        = 1 * time.Hour
 )
 
-func New(db repository.Repository, logger *zap.Logger) repository.Repository {
+type cacheOptions struct {
+	engine cacher.Engine
+}
+
+type option struct {
+	f func(*cacheOptions)
+}
+
+func UseInMemoryCache() option {
+	return option{
+		func(c *cacheOptions) {
+			c.engine = inmemory.New(defaultExp, defaultClearInterval)
+		}}
+}
+
+func UseRedis(host string, port int) option {
+	return option{
+		func(c *cacheOptions) {
+			c.engine = redis.New(host, port)
+		}}
+}
+
+func New(db repository.Repository, logger *zap.Logger, options ...option) repository.Repository {
+	opts := cacheOptions{}
+	UseInMemoryCache().f(&opts)
+
+	for _, option := range options {
+		option.f(&opts)
+	}
+
 	return &cacheLogic{
 		db:     db,
 		logger: logger,
-		cache:  inmemory.New(defaultExp, defaultClearInterval),
+		cache:  opts.engine,
 	}
 }
 
@@ -82,7 +112,10 @@ func (r *cacheLogic) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	r.logger.Debug("delete cache", zap.String("id", id))
-	r.cache.Delete(id)
+	err = r.cache.Delete(id)
+	if err != nil {
+		r.logger.Warn("delete cache fail", zap.Error(err), zap.String("id", id))
+	}
 	return nil
 }
 
@@ -93,7 +126,10 @@ func (r *cacheLogic) Create(ctx context.Context, id, url string, expiredAt time.
 		return err
 	}
 	exp := time.Until(expiredAt)
-	r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
+	err = r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
+	if err != nil {
+		r.logger.Warn("create cache fail", zap.Error(err), zap.String("id", id))
+	}
 	return nil
 }
 
@@ -104,8 +140,12 @@ func (r *cacheLogic) Update(ctx context.Context, id, url string, expiredAt time.
 		return err
 	}
 	exp := time.Until(expiredAt)
-	r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
-	return nil
+	r.logger.Debug("update cache", zap.String("id", id), zap.String("url", url), zap.Error(err), zap.Any("exp", exp))
+	err = r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
+	if err != nil {
+		r.logger.Warn("update cache fail", zap.Error(err), zap.String("id", id), zap.String("url", url))
+	}
+	return err
 }
 
 // SelectDeletedAndExpired just wraps the db.SelectDeletedAndExpired().

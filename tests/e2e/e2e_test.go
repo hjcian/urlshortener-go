@@ -34,7 +34,9 @@ func Test_Server(t *testing.T) {
 	if err != nil {
 		log.Fatalf("failed to connect db: %s", err)
 	}
-	cache := cache.New(db, zaplogger)
+	cache := cache.New(db, zaplogger, cache.UseRedis(env.CacheHost, env.CachePort))
+	// cache := cache.New(db, zaplogger, cache.UseInMemoryCache())
+
 	idGenerator := idgenerator.New(cache, zaplogger)
 
 	engine := server.NewRouter(cache, idGenerator, zaplogger, env.RedirectOrigin)
@@ -57,6 +59,7 @@ func Test_Server(t *testing.T) {
 	})
 
 	t.Run("1.upload(ok)=>2.redirect(ok)=>3.delete(ok)=>4.redirect(not found)", func(t *testing.T) {
+		// t.Skip()
 		uploadedUrl := "http://example.com"
 
 		req := map[string]interface{}{
@@ -90,6 +93,7 @@ func Test_Server(t *testing.T) {
 	})
 
 	t.Run("1.upload A(ok, get idX)=>2.upload A again(ok, get idY)=>3.redirect idX to A(ok)=>4.redirect idY to A(ok)", func(t *testing.T) {
+		// t.Skip()
 		uploadedUrl := "http://example.com"
 
 		req := map[string]interface{}{
@@ -130,6 +134,7 @@ func Test_Server(t *testing.T) {
 	})
 
 	t.Run("1.upload with short expiration(ok)=>2.redirect immediately(OK)=>3.wait for record expired=>4.redirect(not found)", func(t *testing.T) {
+		// t.Skip()
 		uploadedUrl := "http://example.com"
 		expiration := 3 * time.Second
 		req := map[string]interface{}{

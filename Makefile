@@ -15,8 +15,8 @@ DB_PORT?=5555
 DB_NAME?=test
 DB_USER?=test
 DB_PASSWORD?=test
-# CACHE_HOST?=localhost
-# CACHE_PORT?=6679
+CACHE_HOST?=localhost
+CACHE_PORT?=6679
 
 .PHONY: pg, stop-pg, restart-pg, redis, stop-redis, restart-redis, restart-all, stop-all
 stop-pg:
@@ -52,15 +52,15 @@ restart-redis: redis
 stop-all: stop-pg
 stop-all: stop-redis
 
-restart-all: restart-pg
 restart-all: restart-redis
+restart-all: restart-pg
 
 .PHONY: unittest, e2e, alltest, see-coverage
 unittest:
 	@${GOTEST} `go list ./... | grep -v "/e2e\|/experiment"`
 
 # TODO: using `restart-all` after supporting redis cache engine
-e2e: restart-pg
+e2e: restart-all
 e2e:
 	@${GOTEST} `go list ./... | grep /e2e`
 
