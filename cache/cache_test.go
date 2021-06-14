@@ -124,10 +124,10 @@ func (suite *cacheTestSuite) Test_Get_every_goroutine_is_able_to_hit_database_on
 }
 
 func (suite *cacheTestSuite) Test_Delete_hit_database() {
+	// NOTE: this test case will turn out to be invalid after using bloom filter in cache
 	err := suite.cache.Delete(suite.ctx, exampleID)
 	suite.NoError(err)
 	suite.Equal(1, suite.dbRecorder.deleteCount)
-	// TODO: use bloom filter to avoid non-existent record has chance to hit database
 }
 
 func (suite *cacheTestSuite) Test_Create_cache_the_entry() {

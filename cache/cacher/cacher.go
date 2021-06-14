@@ -25,7 +25,7 @@ type Engine interface {
 	// for given id.
 	//
 	// Return `true` means current goroutine get the permission, and has
-	// responsibility to call Uncheck();
+	// responsibility to call Uncheck().
 	//
 	// Return `false` means that an another goroutine has already took the
 	// permission away.

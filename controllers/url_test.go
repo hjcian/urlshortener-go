@@ -50,7 +50,7 @@ func getMockDB(t *testing.T) (repository.Repository, sqlmock.Sqlmock) {
 	repo, err := repository.NewPGForTestWith(
 		postgres.New(postgres.Config{Conn: sqlDB}),
 		gorm.Config{
-			Logger: logger.Default.LogMode(logger.Info), // display SQL statement for debugging
+			Logger: logger.Default.LogMode(logger.Info), // to display SQL statement for debugging
 		},
 	)
 	assert.NoError(t, err)
@@ -132,7 +132,7 @@ func TestUrlController_Upload(t *testing.T) {
 			exec.WillReturnError(errInternalDBError)
 			mock.ExpectRollback() // called by gorm
 		}
-		// this sql will be used by `db.SelectDeletedAndExpired()`
+		// this statement will be used by `db.SelectDeletedAndExpired()`
 		query := mock.ExpectQuery(regexp.QuoteMeta(`SELECT "id" FROM "urls" WHERE deleted_at IS NOT NULL OR expired_at < $1`))
 		query.WithArgs(anyExpireTime{}).WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	}

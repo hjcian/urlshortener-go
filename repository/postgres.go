@@ -93,7 +93,7 @@ func (p *postgresRepository) SelectDeletedAndExpired(ctx context.Context, limit 
 	if err := p.db.
 		Debug().
 		Select("id").
-		Unscoped(). // Find soft deleted records
+		Unscoped(). // call Unscoped() to find soft deleted records
 		Where("deleted_at IS NOT NULL").
 		Or("expired_at < ?", time.Now()).
 		Find(&urls).

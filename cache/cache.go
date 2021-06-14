@@ -61,13 +61,14 @@ type cacheLogic struct {
 	cache  cacher.Engine
 }
 
-// Get caches results that retrieved from database.
+// Get caches the result which retrieved from database and return it.
 func (r *cacheLogic) Get(ctx context.Context, id string) (string, error) {
 	cached, found, err := r.cache.Get(id)
 	if err != nil && err != cacher.ErrEntryNotFound {
 		r.logger.Warn("cache error", zap.Error(err))
 		return "", err
 	}
+
 	if found {
 		r.logger.Debug(
 			"found cached record",
@@ -77,8 +78,8 @@ func (r *cacheLogic) Get(ctx context.Context, id string) (string, error) {
 		return cached.Url, cached.Err
 	}
 
-	// cache miss
 	r.logger.Debug("cache missed", zap.String("id", id))
+
 	// TODO: use bloomfilter to filter out the non-existed key to reduce the
 	// caching load
 	checked, err := r.cache.Check(id)
@@ -112,8 +113,8 @@ func (r *cacheLogic) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	r.logger.Debug("delete cache", zap.String("id", id))
-	err = r.cache.Delete(id)
-	if err != nil {
+
+	if err := r.cache.Delete(id); err != nil {
 		r.logger.Warn("delete cache fail", zap.Error(err), zap.String("id", id))
 	}
 	return nil
@@ -126,8 +127,9 @@ func (r *cacheLogic) Create(ctx context.Context, id, url string, expiredAt time.
 		return err
 	}
 	exp := time.Until(expiredAt)
-	err = r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
-	if err != nil {
+	r.logger.Debug("create cache", zap.String("id", id), zap.String("url", url), zap.Error(err), zap.Any("exp", exp))
+
+	if err := r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp); err != nil {
 		r.logger.Warn("create cache fail", zap.Error(err), zap.String("id", id))
 	}
 	return nil
@@ -141,11 +143,11 @@ func (r *cacheLogic) Update(ctx context.Context, id, url string, expiredAt time.
 	}
 	exp := time.Until(expiredAt)
 	r.logger.Debug("update cache", zap.String("id", id), zap.String("url", url), zap.Error(err), zap.Any("exp", exp))
-	err = r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp)
-	if err != nil {
+
+	if err := r.cache.Set(id, &cacher.Entry{Url: url, Err: err}, exp); err != nil {
 		r.logger.Warn("update cache fail", zap.Error(err), zap.String("id", id), zap.String("url", url))
 	}
-	return err
+	return nil
 }
 
 // SelectDeletedAndExpired just wraps the db.SelectDeletedAndExpired().

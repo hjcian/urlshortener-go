@@ -5,7 +5,5 @@ import (
 )
 
 func New() (*zap.Logger, error) {
-	logger, err := zap.NewDevelopment()
-	// logger, err := zap.NewProduction()
-	return logger, err
+	return zap.NewProduction()
 }

@@ -54,19 +54,6 @@ func deserialize(valBytes []byte) (*cacher.Entry, error) {
 	return &entry, err
 }
 
-// func serialize(entry *cacher.Entry) (string, error) {
-// 	s := entry2serializable(entry)
-// 	b, err := json.Marshal(s)
-// 	return string(b), err
-// }
-
-// func deserialize(data string) (*cacher.Entry, error) {
-// 	var s serializable
-// 	err := json.Unmarshal([]byte(data), &s)
-// 	v := serialized2entry(s)
-// 	return &v, err
-// }
-
 type redis struct {
 	pool *redigo.Pool
 }
@@ -74,7 +61,6 @@ type redis struct {
 func New(host string, port int) cacher.Engine {
 	pool := &redigo.Pool{
 		Dial: func() (redigo.Conn, error) {
-			// Dial
 			c, err := redigo.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 			if err != nil {
 				return nil, err

@@ -43,7 +43,7 @@ func main() {
 		log.Fatalf("failed to connect db: %s", err)
 	}
 
-	cacheOption := cache.UseInMemoryCache() // default choice
+	cacheOption := cache.UseInMemoryCache()
 	if env.CacheMode == config.Redis {
 		cacheOption = cache.UseRedis(env.CacheHost, env.CachePort)
 		zaplogger.Debug("use UseRedis", zap.String("host", env.CacheHost), zap.Int("post", env.CachePort))
@@ -70,7 +70,7 @@ func run(r *gin.Engine, addr string) {
 	}()
 
 	// Wait for interrupt signal to gracefully shutdown the server with
-	// a timeout of 5 seconds.
+	// a timeout.
 	quit := make(chan os.Signal)
 	// kill (no param) default send syscanll.SIGTERM
 	// kill -2 is syscall.SIGINT
@@ -84,10 +84,7 @@ func run(r *gin.Engine, addr string) {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server Shutdown:", err)
 	}
-	// catching ctx.Done(). timeout of 3 seconds.
-	select {
-	case <-ctx.Done():
-		log.Println("timeout of 3 seconds.")
-	}
+	// waiting ctx.Done().
+	<-ctx.Done()
 	log.Println("Server exiting")
 }

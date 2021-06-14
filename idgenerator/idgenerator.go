@@ -96,7 +96,7 @@ func (i *idGenerator) Get(ctx context.Context, url string, expiredAt time.Time) 
 		}
 		return id, nil
 	}
-	// stack is empty
+
 	// try to trigger background recycling process
 	i.recycleID(ctx)
 
