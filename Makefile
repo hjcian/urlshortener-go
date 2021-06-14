@@ -15,6 +15,7 @@ DB_PORT?=5555
 DB_NAME?=test
 DB_USER?=test
 DB_PASSWORD?=test
+CACHE_MODE?=inmemory
 CACHE_HOST?=localhost
 CACHE_PORT?=6679
 
@@ -59,22 +60,24 @@ restart-all: restart-pg
 unittest:
 	@${GOTEST} `go list ./... | grep -v "/e2e\|/experiment"`
 
-# TODO: using `restart-all` after supporting redis cache engine
 e2e: restart-all
 e2e:
 	@${GOTEST} `go list ./... | grep /e2e`
 
-alltest: restart-pg
+alltest: restart-all
 alltest:
 	@${GOTEST} ./...
 
 see-coverage:
 	@go tool cover -html=coverage.out
 
-.PHONY: run
+.PHONY: run, run-with-redis
 run:
 	@${GOCMD} run main.go
 
+run-with-redis: CACHE_MODE=redis
+run-with-redis:
+	@${GOCMD} run main.go
 
 .PHONY: tidy
 tidy:

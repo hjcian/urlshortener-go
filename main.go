@@ -43,7 +43,12 @@ func main() {
 		log.Fatalf("failed to connect db: %s", err)
 	}
 
-	cache := cache.New(db, zaplogger, cache.UseRedis(env.CacheHost, env.CachePort))
+	cacheOption := cache.UseInMemoryCache() // default choice
+	if env.CacheMode == config.Redis {
+		cacheOption = cache.UseRedis(env.CacheHost, env.CachePort)
+		zaplogger.Debug("use UseRedis", zap.String("host", env.CacheHost), zap.Int("post", env.CachePort))
+	}
+	cache := cache.New(db, zaplogger, cacheOption)
 	idGenerator := idgenerator.New(cache, zaplogger)
 
 	r := server.NewRouter(cache, idGenerator, zaplogger, env.RedirectOrigin)

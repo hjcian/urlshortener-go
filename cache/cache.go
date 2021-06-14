@@ -22,25 +22,25 @@ type cacheOptions struct {
 	engine cacher.Engine
 }
 
-type option struct {
+type Option struct {
 	f func(*cacheOptions)
 }
 
-func UseInMemoryCache() option {
-	return option{
+func UseInMemoryCache() Option {
+	return Option{
 		func(c *cacheOptions) {
 			c.engine = inmemory.New(defaultExp, defaultClearInterval)
 		}}
 }
 
-func UseRedis(host string, port int) option {
-	return option{
+func UseRedis(host string, port int) Option {
+	return Option{
 		func(c *cacheOptions) {
 			c.engine = redis.New(host, port)
 		}}
 }
 
-func New(db repository.Repository, logger *zap.Logger, options ...option) repository.Repository {
+func New(db repository.Repository, logger *zap.Logger, options ...Option) repository.Repository {
 	opts := cacheOptions{}
 	UseInMemoryCache().f(&opts)
 

@@ -1,7 +1,7 @@
 # URL Shortener - A Go implementation
 - [URL Shortener - A Go implementation](#url-shortener---a-go-implementation)
   - [Platform Prerequisites](#platform-prerequisites)
-  - [Local Tests](#local-tests)
+  - [Run Local Tests](#run-local-tests)
   - [System Design Thinking](#system-design-thinking)
     - [Why use 6-letters as URL id?](#why-use-6-letters-as-url-id)
     - [SQL or NoSQL?](#sql-or-nosql)
@@ -17,12 +17,14 @@
 - `timeout`
   - *via `brew install coreutils` if you run on MacOS*
 
-## Local Tests
+## Run Local Tests
 - `make unittest`
 - `make e2e`
 - `make alltest`
 - `make see-coverage`
   - *see coverage report after tests*
+
+> *其餘指令請參考 [Makefile](./Makefile)*
 
 ## System Design Thinking
 ### Why use 6-letters as URL id?
@@ -54,8 +56,8 @@
 ### Caching Strategy
 - 此練習在 `cache/cacher/` 中定義 `Engine interface` 提供**快取引擎**需實作的接口，以支援在 `cache/cache.go` 中的業務邏輯
   - 至於實際的**快取引擎**的實作品，此練習實作了以下方案：
-    - ✔️ 提供 `UseInMemoryCache()` 選項來使用 in-memory cache 方案 (cache engine 為 [`patrickmn/go-cache`](https://github.com/patrickmn/go-cache))
-    - ✔️ 提供 `UseRedis()` 選項來使用外部 Redis server 作為快取伺服器 (redis client lib 為 [`gomodule/redigo`](https://github.com/gomodule/redigo))
+    - ✔️ env 提供 `CACHE_MODE=inmemory` 來使用 in-memory cache 方案 (cache engine 為 [`patrickmn/go-cache`](https://github.com/patrickmn/go-cache))
+    - ✔️ env 提供 `CACHE_MODE=redis` 來使用外部 Redis server 作為快取伺服器 (redis client lib 為 [`gomodule/redigo`](https://github.com/gomodule/redigo))
       - 由於 application 本身因版本更迭、修 BUG 而重啟的機會很高，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
         - 📓 *cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
       - 🚧 (TODO) 尋找適合的 mocking 方法，於 unittest 中測試 redis 的實作品
