@@ -1,6 +1,7 @@
 # URL Shortener - A Go implementation
 - [URL Shortener - A Go implementation](#url-shortener---a-go-implementation)
   - [Platform Prerequisites](#platform-prerequisites)
+  - [Run databases and app](#run-databases-and-app)
   - [Run Local Tests](#run-local-tests)
   - [System Design Thinking](#system-design-thinking)
     - [Why use 6-letters as URL id?](#why-use-6-letters-as-url-id)
@@ -17,14 +18,20 @@
 - `timeout`
   - *via `brew install coreutils` if you run on MacOS*
 
+## Run databases and app
+- `make restart-all`
+  - run postgres and redis containers
+- `make run`
+  - run url-shortener app with in-memory cache
+- `make run-with-redis`
+  - run url-shortener app with redis cache
+
 ## Run Local Tests
 - `make unittest`
 - `make e2e`
 - `make alltest`
 - `make see-coverage`
   - *see coverage report after tests*
-
-> *其餘指令請參考 [Makefile](./Makefile)*
 
 ## System Design Thinking
 ### Why use 6-letters as URL id?
