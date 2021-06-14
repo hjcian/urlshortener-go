@@ -7,6 +7,7 @@
     - [SQL or NoSQL?](#sql-or-nosql)
     - [About ID Generator](#about-id-generator)
     - [Caching Strategy](#caching-strategy)
+      - [Cache Miss Strategy](#cache-miss-strategy)
   - [References](#references)
 
 ## Platform Prerequisites
@@ -33,42 +34,45 @@
 ### SQL or NoSQL?
 - 若預估儲存量達到 billions 的數量級 ([red: DB 選用基準](https://github.com/hjcian/urlshortener-python#3-db-%E9%81%B8%E7%94%A8%E5%9F%BA%E6%BA%96))，可能 NoSQL 較適合
 - 但此練習先簡單地使用 postgres (SQL database) 作為資料儲存，並訂定 `Repository interface` 供抽換存方案時使用
-  - (TODO) 完成介接 MongoDB (or other NoSQL database) 的實作品
+  - 🚧 (TODO) 完成介接 MongoDB (or other NoSQL database) 的實作品
 
 ### About ID Generator
 - ID 回收策略
   - 首先，此練習使用一個 in-memory 的 stack 來儲存回收的 id
     - 因為 FIFO 的 queue 會造成 memory leak (`s = s[1:]`，底下的 underlying array 並沒有被歸還)
     - 故採用 FILO 的 stack 來做，稍微減少一點 leak 的情況，但若 `slice` 的 capacity 一直成長，仍會持續佔用記憶體
-    - (TODO) 改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作 stack(or queue) 來避免 memory leak。可再做個 benchmark 看看效能差多少
+    - 🚧 (TODO) 改成使用 [`container/list`](https://golang.org/pkg/container/list/) 來實作 stack(or queue) 來避免 memory leak。可再做個 benchmark 看看效能差多少
   - 觸發回收機制的時機為某次 request 發現 stack 為空時
     - 但該次 request 還是使用即時產生 id、不等待回收處理完成。回收處理留到背景作業
     - 而同時間僅允許一個 request 觸發回收處理程序，避免高併發的情況下，多個回收處理程序對 DB 造成大量 queries
     - 回收處理完之後就會填充 stack，後續的 request 就可從 stack 中取得回收的 id
-  - (TODO) 除了透過被動地觸發回收機制，也許可再進一步做一個 background goroutine 定期向 DB 回收 id
-- (TODO) 整個 id generator 可進一步考慮與此服務解耦，成為單獨的 ID generator service
+  - 🚧 (TODO) 除了透過被動地觸發回收機制，也許可再進一步做一個 background goroutine 定期向 DB 回收 id
+- 🚧 (TODO) 整個 id generator 可進一步考慮與此服務解耦，成為單獨的 ID generator service
   - 對 url shortener 來說，就只是向 ID generator service 取一個 ID，其餘的不管
   - ID generator service 就專心負責處理儲存資料至 DB 及從 DB 回收 ID 的任務
 
 ### Caching Strategy
-- 此練習定義 `cacher.Engine interface` 提供**快取引擎**需實作的接口，以支援在 `cache.go` 中的業務需求處理邏輯
+- 此練習在 `cache/cacher/` 中定義 `Engine interface` 提供**快取引擎**需實作的接口，以支援在 `cache/cache.go` 中的業務邏輯
   - 至於實際的**快取引擎**的實作品，此練習實作了以下方案：
-    - [x] 提供 `UseInMemoryCache()` 選項來使用 in-memory cache 方案 (cache engine 為 [`patrickmn/go-cache`](https://github.com/patrickmn/go-cache))
-    - [x] 提供 `UseRedis()` 選項來使用外部 Redis server 作為快取伺服器 (redis client lib 為 [`gomodule/redigo`](https://github.com/gomodule/redigo))
-      - 由於 app 因版本更迭重啟的機會很大，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
-        - *NOTE: cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
-      - (TODO) 尋找適合的 mocking 方法，於 unittest 中測試 redis 的實作品
-- cache miss strategy
-  - 面對 **existent shorten URL** 的高併發存取請求，假設存取的是同一個 id，在 cache miss 時的 cache updating 可能會引起 cache stampede 的問題 (hotkey)
-    - 故在 CAP 的妥協中，此練習選擇實作 AP，也就是在 concurrent requests 的情境下只允許一個 goroutine 可以去觸發 cache update 以避免 cache stampede，其餘的 requests 就先回應 `404`
-    - 又考慮到可能會因預設的 cache 過期時間可能小於資料真實過期時間，結果 cache 過期後剛好遇到高併發請求，造成只有一個 client 可成功執行 cache update 及轉址、其餘 clients 需要重試、體驗不佳的情況，故此練習選擇在首次上傳時就將資料更新至 cache，並設定過期時間與真實過期時間一致
-      - (trade-off) 此舉讓 cache 與 storage 資料一致，理論上不會有 clients 需要重試的機會。***但會增加 cache 的負擔、儲存更多的資料***
-    - 當 cached URL 過期時，仍需要再從 DB 中取得資訊並緩存
-      - 此步驟因為 AP 的考量，也只會有一個 request 進到 DB 取得該筆已過期的資訊。其餘的 requests 即時收到 `404` 也與未來從快取中取得 `404` 結果一致
-      - (trade-off) 或選擇**實作 CP**，其他 concurrent requests 都阻塞直到 cache updated，再從 cache 中取資料。***但此舉是讓 client 等待，可能也是另一種不佳的體驗***
-    - (TODO) 可使用 **`bloom filter`** 放在 cache layer 之前，來確定***一定不在 storage 的資料***，以降低 cache 儲存的負擔、也減少進到 database 的機會
-  - 面對 **non-existent shorten URL** 的高併發存取請求，恐會有 cache penetration，此練習目前選擇先用 cache 存起來來避免
-    - (TODO) 適合使用 **`bloom filter`** 放在 cache layer 之前，以降低 cache 儲存的負擔
+    - ✔️ 提供 `UseInMemoryCache()` 選項來使用 in-memory cache 方案 (cache engine 為 [`patrickmn/go-cache`](https://github.com/patrickmn/go-cache))
+    - ✔️ 提供 `UseRedis()` 選項來使用外部 Redis server 作為快取伺服器 (redis client lib 為 [`gomodule/redigo`](https://github.com/gomodule/redigo))
+      - 由於 application 本身因版本更迭、修 BUG 而重啟的機會很高，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
+        - 📓 *cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
+      - 🚧 (TODO) 尋找適合的 mocking 方法，於 unittest 中測試 redis 的實作品
+
+#### Cache Miss Strategy
+- 面對 **existent shorten URL** 的高併發存取請求，假設存取的是同一個 id，在 cache miss 時的 cache updating 可能會引起 cache stampede 的問題 (hotkey)
+  - 故在 CAP 的妥協中，此練習選擇實作 AP，也就是在 concurrent requests 的情境下只允許一個 goroutine 可以去觸發 cache update 以避免 cache stampede，其餘的 requests 就先回應 `404`
+  - 又考慮到可能會因預設的 cache 過期時間可能小於資料真實過期時間，結果 cache 過期後剛好遇到高併發請求，造成只有一個 client 可成功執行 cache update 及轉址、其餘 clients 需要重試、體驗不佳的情況，故此練習選擇在首次上傳時就將資料更新至 cache，並設定過期時間與真實過期時間一致
+    - 🤔 (trade-off) 此舉讓 cache 與 storage 資料一致，理論上不會有 clients 需要重試的機會。***但會增加 cache 的負擔、儲存更多的資料***
+  - 當 cached URL 過期時，仍需要再從 DB 中取得資訊並緩存
+    - 此步驟因為 AP 的考量，也只會有一個 request 進到 DB 取得該筆已過期的資訊。其餘的 requests 即時收到 `404` 也與未來從快取中取得 `404` 結果一致
+    - 🤔 (trade-off) 或選擇**實作 CP**，其他 concurrent requests 都阻塞直到 cache updated，再從 cache 中取資料。***但此舉是讓 client 等待，可能也是另一種不佳的體驗***
+  - 🚧 (TODO) 可使用 **`bloom filter`** 放在 cache layer 之前，來確定***一定不在 storage 的資料***，以降低 cache 儲存的負擔、也減少進到 database 的機會
+
+- 面對 **non-existent shorten URL** 的高併發存取請求，恐會有 cache penetration，此練習目前選擇先用 cache 存起來來避免
+  - 🚧 (TODO) 適合使用 **`bloom filter`** 放在 cache layer 之前，以降低 cache 儲存的負擔
+
 
 ## References
 - cache related
