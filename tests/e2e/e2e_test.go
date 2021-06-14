@@ -126,4 +126,35 @@ func Test_Server(t *testing.T) {
 			StatusRange(httpexpect.Status3xx).
 			Header("location").Equal(uploadedUrl)
 	})
+
+	t.Run("1.upload with short expiration(ok)=>2.redirect immediately(OK)=>3.wait for record expired=>4.redirect(not found)", func(t *testing.T) {
+		uploadedUrl := "http://example.com"
+		expiration := 3 * time.Second
+		req := map[string]interface{}{
+			"url":      uploadedUrl,
+			"expireAt": time.Now().Add(expiration).Format(expireAtLayout),
+		}
+		// 1.
+		obj := e.POST("/api/v1/urls").WithJSON(req).
+			Expect().
+			Status(http.StatusOK).
+			JSON().Object()
+		obj.Keys().ContainsOnly("id", "shortUrl")
+		id := obj.Value("id").Raw()
+
+		// 2.
+		e.GET("/{id}", id).
+			WithRedirectPolicy(httpexpect.DontFollowRedirects).
+			Expect().
+			StatusRange(httpexpect.Status3xx).
+			Header("location").Equal(uploadedUrl)
+
+		// 3.
+		time.Sleep(expiration)
+
+		// 4.
+		e.GET("/{id}", id).
+			Expect().
+			StatusRange(http.StatusNotFound)
+	})
 }
