@@ -66,7 +66,7 @@
     - ✔️ env 提供 `CACHE_MODE=inmemory` 來使用 in-memory cache 方案
     - ✔️ env 提供 `CACHE_MODE=redis` 來使用外部 Redis server 作為快取伺服器
       - 由於 application 本身因版本更迭、修 BUG 而重啟的機會很高，故使用外部 cache server 來儲存才能避免因 app 重啟造成的 cache avalanche
-        - 📓 *cache avalanche (快取雪崩): 指 cache server 重啟時要成大量 requests 因 cache miss 打進 DB*
+        - 📓 *cache avalanche (快取雪崩): 指 cache server 重啟時造成大量 requests 因 cache miss 打進 DB*
       - 🚧 (TODO) 尋找適合的 mocking 方法，於 unittest 中測試 redis 的實作品
 
 #### Cache Miss Strategy

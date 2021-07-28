@@ -1,8 +1,9 @@
 # Go parameters
 #= reminders
-#= GOFLAGS="-count=1" ---> turn off test caching
+#= -count=1 ---> Run each test and benchmark n times (default 1).
+#                The idiomatic way to disable test caching explicitly is to use -count=1.
 #= -covermode=count   ---> how many times did each statement run?
-#=			=atomic   ---> like count, but counts precisely in parallel programs
+#=           =atomic   ---> like count, but counts precisely in parallel programs
 GOENV=CGO_ENABLED=0 GOFLAGS="-count=1"
 GOCMD=$(GOENV) go
 GOGET=go get
